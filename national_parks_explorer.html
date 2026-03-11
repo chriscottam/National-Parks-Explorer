@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>National Parks Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --forest: #1a3a2a;
+    --moss: #3d6b4f;
+    --sage: #7a9e7e;
+    --sand: #e8d5a3;
+    --stone: #c4a882;
+    --sky: #4a7fa5;
+    --cream: #faf6ef;
+    --bark: #5c3d1e;
+    --gold: #c9960c;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    background: var(--cream);
+    color: var(--forest);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    background: var(--forest);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    border-bottom: 3px solid var(--gold);
+  }
+
+  .logo-icon {
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    color: var(--sand);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  header h1 span {
+    color: var(--gold);
+  }
+
+  .badge {
+    margin-left: auto;
+    background: var(--moss);
+    color: var(--sand);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .main-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 340px;
+    flex-shrink: 0;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid #e0d8cc;
+  }
+
+  .filters {
+    padding: 16px;
+    background: var(--forest);
+    flex-shrink: 0;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .filter-row:last-child { margin-bottom: 0; }
+
+  .filter-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .filter-group label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--sage);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  select, input[type="text"] {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--moss);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.08);
+    color: var(--sand);
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.85rem;
+    appearance: none;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  select option { background: var(--forest); color: var(--sand); }
+
+  select:focus, input[type="text"]:focus {
+    border-color: var(--gold);
+    background: rgba(255,255,255,0.12);
+  }
+
+  input[type="text"]::placeholder { color: rgba(232,213,163,0.45); }
+
+  .results-header {
+    padding: 10px 16px 6px;
+    background: var(--cream);
+    border-bottom: 1px solid #e0d8cc;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .results-header span {
+    font-size: 0.8rem;
+    color: var(--moss);
+    font-weight: 600;
+  }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid var(--stone);
+    color: var(--bark);
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Source Sans 3', sans-serif;
+    transition: all 0.15s;
+  }
+  .clear-btn:hover { background: var(--stone); color: white; }
+
+  .parks-list {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .park-item {
+    padding: 10px 16px;
+    border-bottom: 1px solid #f0ebe2;
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+
+  .park-item:hover { background: #f7f2ea; }
+  .park-item.active { background: #eef5f0; border-left: 3px solid var(--moss); }
+
+  .park-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--forest);
+    line-height: 1.3;
+    margin-bottom: 3px;
+  }
+
+  .park-meta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-size: 0.68rem;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .tag-state { background: #e8f4ec; color: var(--moss); }
+  .tag-region { background: #e8eef4; color: var(--sky); }
+  .tag-type { background: #f4ede8; color: var(--bark); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .no-coords { opacity: 0.55; }
+  .no-coords::after {
+    content: '⚠ no map data';
+    font-size: 0.65rem;
+    color: #aaa;
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* MAP */
+  #map {
+    flex: 1;
+    z-index: 0;
+  }
+
+  /* Custom marker popup */
+  .popup-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--forest);
+    margin-bottom: 4px;
+  }
+  .popup-detail { font-size: 0.8rem; color: #555; line-height: 1.6; }
+  .popup-detail strong { color: var(--forest); }
+  .popup-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--sky);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .popup-link:hover { text-decoration: underline; }
+
+  /* Leaflet overrides */
+  .leaflet-popup-content-wrapper {
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+  }
+
+  /* Scrollbar styling */
+  .parks-list::-webkit-scrollbar { width: 5px; }
+  .parks-list::-webkit-scrollbar-track { background: #f0ebe2; }
+  .parks-list::-webkit-scrollbar-thumb { background: var(--stone); border-radius: 3px; }
+
+  .empty-state {
+    padding: 32px 16px;
+    text-align: center;
+    color: #aaa;
+    font-size: 0.9rem;
+  }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo-icon">🏕</span>
+  <h1>National Parks <span>Explorer</span></h1>
+  <div class="badge" id="total-badge">437 parks</div>
+</header>
+
+<div class="main-layout">
+  <div class="sidebar">
+    <div class="filters">
+      <div class="filter-row">
+        <div class="filter-group" style="flex:2">
+          <label>Search by Name</label>
+          <input type="text" id="search-input" placeholder="e.g. Yellowstone, Grand...">
+        </div>
+      </div>
+      <div class="filter-row">
+        <div class="filter-group">
+          <label>State</label>
+          <select id="state-filter">
+            <option value="">All States</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Region</label>
+          <select id="region-filter">
+            <option value="">All Regions</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-row">
+        <div class="filter-group">
+          <label>Park Type</label>
+          <select id="type-filter">
+            <option value="">All Types</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="results-header">
+      <span id="result-count">Loading...</span>
+      <button class="clear-btn" onclick="clearFilters()">Clear Filters</button>
+    </div>
+
+    <div class="parks-list" id="parks-list"></div>
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<script>
+// ============================================================
+// PARK DATA
+// ============================================================
+const PARKS_DATA = [{"id":"1","code":"APIS","name":"Apostle Islands National Lakeshore","parkname":"Apostle Islands","state":"WI","region":"MW","type":"National Lakeshores"},{"id":"2","code":"EFMO","name":"Effigy Mounds National Monument","parkname":"Effigy Mounds","state":"IA","region":"MW","type":"National Monuments"},{"id":"3","code":"GUIS","name":"Gulf Islands National Seashore","parkname":"Gulf Islands","state":"MS","region":"SE","type":"National Seashores"},{"id":"4","code":"HAFE","name":"Harpers Ferry National Historical Park","parkname":"Harpers Ferry","state":"VA","region":"NC","type":"National Historical Parks"},{"id":"5","code":"HEHO","name":"Herbert Hoover National Historic Site","parkname":"Herbert Hoover","state":"IA","region":"MW","type":"National Historic Sites"},{"id":"6","code":"INDU","name":"Indiana Dunes National Park","parkname":"Indiana Dunes","state":"IN","region":"MW","type":"National Parks"},{"id":"7","code":"MNRR","name":"Missouri National Recreational River","parkname":"Missouri","state":"SD","region":"MW","type":"National Wild & Scenic Rivers"},{"id":"8","code":"NOCA","name":"North Cascades National Park","parkname":"North Cascades","state":"WA","region":"PW","type":"National Parks"},{"id":"9","code":"OLYM","name":"Olympic National Park","parkname":"Olympic","state":"WA","region":"PW","type":"National Parks"},{"id":"10","code":"PINN","name":"Pinnacles National Park","parkname":"Pinnacles","state":"CA","region":"PW","type":"National Parks"},{"id":"11","code":"PORE","name":"Point Reyes National Seashore","parkname":"Point Reyes","state":"CA","region":"PW","type":"National Seashores"},{"id":"12","code":"PRWI","name":"Prince William Forest Park","parkname":"Prince William Forest","state":"VA","region":"NC","type":"Other Designations"},{"id":"13","code":"PUHO","name":"Pu'uhonua o Honaunau National Historical Park","parkname":"Pu`uhonua O Honaunau","state":"HI","region":"PW","type":"National Historical Parks"},{"id":"14","code":"REER","name":"Reconstruction Era National Historical Park","parkname":"Reconstruction Era","state":"SC","region":"SE","type":"National Historical Parks"},{"id":"15","code":"SAIR","name":"Saugus Iron Works National Historic Site","parkname":"Saugus Iron Works","state":"MA","region":"NE","type":"National Historic Sites"},{"id":"16","code":"SARA","name":"Saratoga National Historical Park","parkname":"Saratoga","state":"NY","region":"NE","type":"National Historical Parks"},{"id":"17","code":"TILL","name":"Emmett Till and Mamie Till-Mobley National Monument","parkname":"Emmet TIill AND Mamie Till-Mobley","state":"MS","region":"SE","type":"National Monuments"},{"id":"18","code":"VICK","name":"Vicksburg National Military Park","parkname":"Vicksburg","state":"MS","region":"SE","type":"National Military Parks"},{"id":"19","code":"VOYA","name":"Voyageurs National Park","parkname":"Voyageurs","state":"MN","region":"MW","type":"National Parks"},{"id":"20","code":"GEWA","name":"George Washington Birthplace National Monument","parkname":"George Washington Birthplace","state":"VA","region":"NE","type":"National Monuments"},{"id":"21","code":"CIBS","name":"Carlisle Federal Indian Boarding School National Monument","parkname":"Carlisle Federal Indian Boarding School","state":"PA","region":"NE","type":"National Monuments"},{"id":"22","code":"FRPE","name":"Frances Perkins National Monument","parkname":"Frances Perkins","state":"ME","region":"NE","type":"National Monuments"},{"id":"23","code":"MISS","name":"Mississippi National River and Recreation Area","parkname":"Mississippi","state":"MN","region":"MW","type":"National Rivers"},{"id":"24","code":"BOST","name":"Boston National Historical Park","parkname":"Boston","state":"MA","region":"NE","type":"National Historical Parks"},{"id":"25","code":"MAVA","name":"Martin Van Buren National Historic Site","parkname":"Martin Van Buren","state":"NY","region":"NE","type":"National Historic Sites"},{"id":"26","code":"SPAR","name":"Springfield Armory National Historic Site","parkname":"Springfield Armory","state":"MA","region":"NE","type":"National Historic Sites"},{"id":"27","code":"ACAD","name":"Acadia National Park","parkname":"Acadia","state":"ME","region":"NE","type":"National Parks"},{"id":"28","code":"SACR","name":"Saint Croix Island International Historic Site","parkname":"Saint Croix Island","state":"ME","region":"NE","type":"International Historic Sites"},{"id":"29","code":"ADAM","name":"Adams National Historical Park","parkname":"Adams","state":"MA","region":"NE","type":"National Historical Parks"},{"id":"30","code":"JOFI","name":"John Fitzgerald Kennedy National Historic Site","parkname":"John F Kennedy","state":"MA","region":"NE","type":"National Historic Sites"},{"id":"31","code":"MIMA","name":"Minute Man National Historical Park","parkname":"Minute Man","state":"MA","region":"NE","type":"National Historical Parks"},{"id":"32","code":"SAMA","name":"Salem Maritime National Historic Site","parkname":"Salem Maritime","state":"MA","region":"NE","type":"National Historical Parks"},{"id":"33","code":"CACO","name":"Cape Cod National Seashore","parkname":"Cape Cod","state":"MA","region":"NE","type":"National Seashores"},{"id":"34","code":"ELRO","name":"Eleanor Roosevelt National Historic Site","parkname":"Eleanor Roosevelt","state":"NY","region":"NE","type":"National Historic Sites"},{"id":"35","code":"LONG","name":"Longfellow House-Washington's Headquarters National Historic Site","parkname":"Longfellow","state":"MA","region":"NE","type":"National Historic Sites"},{"id":"36","code":"GATE","name":"Gateway National Recreation Area","parkname":"Gateway","state":"NY","region":"NE","type":"National Recreation Areas"},{"id":"37","code":"SAPA","name":"Saint Paul's Church National Historic Site","parkname":"Saint Paul's Church","state":"NY","region":"NE","type":"National Historic Sites"},{"id":"38","code":"THRI","name":"Theodore Roosevelt Inaugural National Historic Site","parkname":"Theodore Roosevelt Inaugural","state":"NY","region":"NE","type":"National Historic Sites"},{"id":"39","code":"FOST","name":"Fort Stanwix National Monument","parkname":"Fort Stanwix","state":"NY","region":"NE","type":"National Monuments"},{"id":"40","code":"FIIS","name":"Fire Island National Seashore","parkname":"Fire Island","state":"NY","region":"NE","type":"National Seashores"},{"id":"41","code":"HOFR","name":"Home of Franklin D. Roosevelt National Historic Site","parkname":"Home of Franklin D Roosevelt","state":"NY","region":"NE","type":"National Historic Sites"},{"id":"42","code":"VAMA","name":"Vanderbilt Mansion National Historic Site","parkname":"Vanderbilt Mansion","state":"NY","region":"NE","type":"National Historic Sites"},{"id":"43","code":"SAGA","name":"Saint-Gaudens National Historical Park","parkname":"Saint-Gaudens","state":"NH","region":"NE","type":"National Historical Parks"},{"id":"44","code":"STLI","name":"Statue of Liberty National Monument","parkname":"Statue Of Liberty","state":"NY","region":"NE","type":"National Monuments"},{"id":"45","code":"EDIS","name":"Thomas Edison National Historical Park","parkname":"Thomas Edison","state":"NJ","region":"NE","type":"National Historical Parks"},{"id":"46","code":"MORR","name":"Morristown National Historical Park","parkname":"Morristown","state":"NJ","region":"NE","type":"National Historical Parks"},{"id":"47","code":"THRB","name":"Theodore Roosevelt Birthplace National Historic Site","parkname":"Theodore Roosevelt Birthplace","state":"NY","region":"NE","type":"National Historic Sites"},{"id":"48","code":"CACL","name":"Castle Clinton National Monument","parkname":"Castle Clinton","state":"NY","region":"NE","type":"National Monuments"},{"id":"49","code":"FEHA","name":"Federal Hall National Memorial","parkname":"Federal Hall","state":"NY","region":"NE","type":"National Memorials"},{"id":"50","code":"GEGR","name":"General Grant National Memorial","parkname":"General Grant","state":"NY","region":"NE","type":"National Memorials"},{"id":"51","code":"HAGR","name":"Hamilton Grange National Memorial","parkname":"Hamilton Grange","state":"NY","region":"NE","type":"National Memorials"},{"id":"52","code":"SAHI","name":"Sagamore Hill National Historic Site","parkname":"Sagamore Hill","state":"NY","region":"NE","type":"National Historic Sites"},{"id":"53","code":"BOAF","name":"Boston African American National Historic Site","parkname":"Boston African American","state":"MA","region":"NE","type":"National Historic Sites"},{"id":"54","code":"BOHA","name":"Boston Harbor Islands National Recreation Area","parkname":"Boston Harbor Islands","state":"MA","region":"NE","type":"National Recreation Areas"},{"id":"55","code":"AFBG","name":"African Burial Ground National Monument","parkname":"African Burial Ground","state":"NY","region":"NE","type":"National Monuments"},{"id":"56","code":"GOIS","name":"Governors Island National Monument","parkname":"Governors Island","state":"NY","region":"NE","type":"National Monuments"},{"id":"57","code":"LOWE","name":"Lowell National Historical Park","parkname":"Lowell","state":"MA","region":"NE","type":"National Historical Parks"},{"id":"58","code":"ROWI","name":"Roger Williams National Memorial","parkname":"Roger Williams","state":"RI","region":"NE","type":"National Memorials"},{"id":"59","code":"NEBE","name":"New Bedford Whaling National Historical Park","parkname":"New Bedford Whaling","state":"MA","region":"NE","type":"National Historical Parks"},{"id":"60","code":"WEFA","name":"Weir Farm National Historical Park","parkname":"Weir Farm","state":"CT","region":"NE","type":"National Historical Parks"},{"id":"61","code":"MABI","name":"Marsh-Billings-Rockefeller National Historical Park","parkname":"Marsh - Billings - Rockefeller","state":"VT","region":"NE","type":"National Historical Parks"},{"id":"62","code":"WORI","name":"Women's Rights National Historical Park","parkname":"Women's Rights","state":"NY","region":"NE","type":"National Historical Parks"},{"id":"63","code":"FRLA","name":"Frederick Law Olmsted National Historic Site","parkname":"Frederick Law Olmsted","state":"MA","region":"NE","type":"National Historic Sites"},{"id":"64","code":"KNRI","name":"Knife River Indian Villages National Historic Site","parkname":"Knife River Indian Villages","state":"ND","region":"MW","type":"National Historic Sites"},{"id":"65","code":"BADL","name":"Badlands National Park","parkname":"Badlands","state":"SD","region":"MW","type":"National Parks"},{"id":"66","code":"BICA","name":"Bighorn Canyon National Recreation Area","parkname":"Bighorn Canyon","state":"MT","region":"IM","type":"National Recreation Areas"},{"id":"67","code":"CANY","name":"Canyonlands National Park","parkname":"Canyonlands","state":"UT","region":"IM","type":"National Parks"},{"id":"68","code":"ARCH","name":"Arches National Park","parkname":"Arches","state":"UT","region":"IM","type":"National Parks"},{"id":"69","code":"NABR","name":"Natural Bridges National Monument","parkname":"Natural Bridges","state":"UT","region":"IM","type":"National Monuments"},{"id":"70","code":"BLCA","name":"Black Canyon of the Gunnison National Park","parkname":"Black Canyon of the Gunnison","state":"CO","region":"IM","type":"National Parks"},{"id":"71","code":"COLM","name":"Colorado National Monument","parkname":"Colorado","state":"CO","region":"IM","type":"National Monuments"},{"id":"72","code":"CURE","name":"Curecanti National Recreation Area","parkname":"Curecanti","state":"CO","region":"IM","type":"National Recreation Areas"},{"id":"73","code":"LIBI","name":"Little Bighorn Battlefield National Monument","parkname":"Little Bighorn Battlefield","state":"MT","region":"IM","type":"National Monuments"},{"id":"74","code":"DETO","name":"Devils Tower National Monument","parkname":"Devils Tower","state":"WY","region":"IM","type":"National Monuments"},{"id":"75","code":"DINO","name":"Dinosaur National Monument","parkname":"Dinosaur","state":"UT","region":"IM","type":"National Monuments"},{"id":"76","code":"FOLA","name":"Fort Laramie National Historic Site","parkname":"Fort Laramie","state":"WY","region":"IM","type":"National Historic Sites"},{"id":"77","code":"GLAC","name":"Glacier National Park","parkname":"Glacier","state":"MT","region":"IM","type":"National Parks"},{"id":"78","code":"GLCA","name":"Glen Canyon National Recreation Area","parkname":"Glen Canyon","state":"AZ","region":"IM","type":"National Recreation Areas"},{"id":"79","code":"RABR","name":"Rainbow Bridge National Monument","parkname":"Rainbow Bridge","state":"UT","region":"IM","type":"National Monuments"},{"id":"80","code":"GOSP","name":"Golden Spike National Historical Park","parkname":"Golden Spike","state":"UT","region":"IM","type":"National Historical Parks"},{"id":"81","code":"GRTE","name":"Grand Teton National Park","parkname":"Grand Teton","state":"WY","region":"IM","type":"National Parks"},{"id":"82","code":"SAND","name":"Sand Creek Massacre National Historic Site","parkname":"Sand Creek Massacre","state":"CO","region":"IM","type":"National Historic Sites"},{"id":"83","code":"GRSA","name":"Great Sand Dunes National Park","parkname":"Great Sand Dunes","state":"CO","region":"IM","type":"National Parks"},{"id":"84","code":"GRSA","name":"Great Sand Dunes National Preserve","parkname":"Great Sand Dunes","state":"CO","region":"IM","type":"National Preserves"},{"id":"85","code":"JODR","name":"John D. Rockefeller, Jr., Memorial Parkway","parkname":"John D Rockefeller Jr","state":"WY","region":"IM","type":"Parkways"},{"id":"86","code":"FOBU","name":"Fossil Butte National Monument","parkname":"Fossil Butte","state":"WY","region":"IM","type":"National Monuments"},{"id":"87","code":"MEVE","name":"Mesa Verde National Park","parkname":"Mesa Verde","state":"CO","region":"IM","type":"National Parks"},{"id":"88","code":"HOVE","name":"Hovenweep National Monument","parkname":"Hovenweep","state":"CO","region":"IM","type":"National Monuments"},{"id":"89","code":"YUHO","name":"Yucca House National Monument","parkname":"Yucca House","state":"CO","region":"IM","type":"National Monuments"},{"id":"90","code":"MORU","name":"Mount Rushmore National Memorial","parkname":"Mount Rushmore","state":"SD","region":"MW","type":"National Memorials"},{"id":"91","code":"ROMO","name":"Rocky Mountain National Park","parkname":"Rocky Mountain","state":"CO","region":"IM","type":"National Parks"},{"id":"92","code":"BEOL","name":"Bent's Old Fort National Historic Site","parkname":"Bent's Old Fort","state":"CO","region":"IM","type":"National Historic Sites"},{"id":"93","code":"BRCA","name":"Bryce Canyon National Park","parkname":"Bryce Canyon","state":"UT","region":"IM","type":"National Parks"},{"id":"94","code":"CARE","name":"Capitol Reef National Park","parkname":"Capitol Reef","state":"UT","region":"IM","type":"National Parks"},{"id":"95","code":"CEBR","name":"Cedar Breaks National Monument","parkname":"Cedar Breaks","state":"UT","region":"IM","type":"National Monuments"},{"id":"96","code":"PISP","name":"Pipe Spring National Monument","parkname":"Pipe Spring","state":"AZ","region":"IM","type":"National Monuments"},{"id":"97","code":"ZION","name":"Zion National Park","parkname":"Zion","state":"UT","region":"IM","type":"National Parks"},{"id":"98","code":"THRO","name":"Theodore Roosevelt National Park","parkname":"Theodore Roosevelt","state":"ND","region":"MW","type":"National Parks"},{"id":"99","code":"FOUS","name":"Fort Union Trading Post National Historic Site","parkname":"Fort Union Trading Post","state":"ND","region":"MW","type":"National Historic Sites"},{"id":"100","code":"TICA","name":"Timpanogos Cave National Monument","parkname":"Timpanogos Cave","state":"UT","region":"IM","type":"National Monuments"},{"id":"101","code":"WICA","name":"Wind Cave National Park","parkname":"Wind Cave","state":"SD","region":"MW","type":"National Parks"},{"id":"102","code":"JECA","name":"Jewel Cave National Monument","parkname":"Jewel Cave","state":"SD","region":"MW","type":"National Monuments"},{"id":"103","code":"BIHO","name":"Big Hole National Battlefield","parkname":"Big Hole","state":"MT","region":"PW","type":"National Battlefields"},{"id":"104","code":"GRKO","name":"Grant-Kohrs Ranch National Historic Site","parkname":"Grant-Kohrs Ranch","state":"MT","region":"IM","type":"National Historic Sites"},{"id":"105","code":"NACA","name":"National Capital Parks","parkname":"National Capital Parks","state":"DC","region":"NC","type":"Other Designations"},{"id":"106","code":"CLBA","name":"Clara Barton National Historic Site","parkname":"Clara Barton","state":"MD","region":"NC","type":"National Historic Sites"},{"id":"107","code":"BEPA","name":"Belmont-Paul Women's Equality National Monument","parkname":"Belmont-Paul Women's Equality","state":"DC","region":"NC","type":"National Monuments"},{"id":"108","code":"FOWA","name":"Fort Washington Park","parkname":"Fort Washington","state":"MD","region":"NC","type":"Other Designations"},{"id":"109","code":"LYBA","name":"Lyndon Baines Johnson Memorial Grove on the Potomac","parkname":"Lyndon Baines Johnson Memorial Grove","state":"DC","region":"NC","type":"National Memorials"},{"id":"110","code":"MALL","name":"National Mall","parkname":"National Mall","state":"DC","region":"NC","type":"Other Designations"},{"id":"111","code":"GREE","name":"Greenbelt Park","parkname":"Greenbelt","state":"MD","region":"NC","type":"Other Designations"},{"id":"112","code":"ROCR","name":"Rock Creek Park","parkname":"Rock Creek Park","state":"DC","region":"NC","type":"Other Designations"},{"id":"113","code":"PAAV","name":"Pennsylvania Avenue National Historic Site","parkname":"Pennsylvania Avenue","state":"DC","region":"NC","type":"National Historic Sites"},{"id":"114","code":"ANTI","name":"Antietam National Battlefield","parkname":"Antietam","state":"MD","region":"NC","type":"National Battlefields"},{"id":"115","code":"CHOH","name":"Chesapeake and Ohio Canal National Historical Park","parkname":"Chesapeake and Ohio Canal","state":"MD","region":"NC","type":"National Historical Parks"},{"id":"116","code":"MABE","name":"Mary McLeod Bethune Council House National Historic Site","parkname":"Mary McLeod Bethune Council House","state":"DC","region":"NC","type":"National Historic Sites"},{"id":"117","code":"CATO","name":"Catoctin Mountain Park","parkname":"Catoctin Mountain","state":"MD","region":"NC","type":"Other Designations"},{"id":"118","code":"GWMP","name":"George Washington Memorial Parkway","parkname":"George Washington","state":"VA","region":"NC","type":"Parkways"},{"id":"119","code":"ARHO","name":"Arlington House, The Robert E. Lee Memorial","parkname":"Arlington House, The Robert E. Lee Memorial","state":"VA","region":"NC","type":"National Memorials"},{"id":"120","code":"THIS","name":"Theodore Roosevelt Island","parkname":"Theodore Roosevelt Island","state":"DC","region":"NC","type":"National Memorials"},{"id":"121","code":"WWII","name":"World War II Memorial","parkname":"World War II Memorial","state":"DC","region":"NC","type":"National Memorials"},{"id":"122","code":"FRDE","name":"Franklin Delano Roosevelt Memorial","parkname":"Franklin Delano Roosevelt","state":"DC","region":"NC","type":"National Memorials"},{"id":"123","code":"FOTH","name":"Ford's Theatre National Historic Site","parkname":"Ford's Theatre","state":"DC","region":"NC","type":"National Historic Sites"},{"id":"124","code":"JEFM","name":"Thomas Jefferson Memorial","parkname":"Thomas Jefferson Memorial","state":"DC","region":"NC","type":"National Memorials"},{"id":"125","code":"LINC","name":"Lincoln Memorial","parkname":"Lincoln","state":"DC","region":"NC","type":"National Memorials"},{"id":"126","code":"WAMO","name":"Washington Monument","parkname":"Washington Monument","state":"DC","region":"NC","type":"National Memorials"},{"id":"127","code":"KOWA","name":"Korean War Veterans Memorial","parkname":"Korean War Veterans","state":"DC","region":"NC","type":"National Memorials"},{"id":"128","code":"PISC","name":"Piscataway Park","parkname":"Piscataway","state":"MD","region":"NC","type":"Other Designations"},{"id":"129","code":"FRDO","name":"Frederick Douglass National Historic Site","parkname":"Frederick Douglass","state":"DC","region":"NC","type":"National Historic Sites"},{"id":"130","code":"CAWO","name":"Carter G. Woodson Home National Historic Site","parkname":"Carter G. Woodson Home","state":"DC","region":"NC","type":"National Historic Sites"},{"id":"131","code":"MONO","name":"Monocacy National Battlefield","parkname":"Monocacy","state":"MD","region":"NC","type":"National Battlefields"},{"id":"132","code":"VIVE","name":"Vietnam Veterans Memorial","parkname":"Vietnam Veterans","state":"DC","region":"NC","type":"National Memorials"},{"id":"133","code":"COGA","name":"Constitution Gardens","parkname":"Constitution Gardens","state":"DC","region":"NC","type":"Other Designations"},{"id":"134","code":"WOTR","name":"Wolf Trap National Park for the Performing Arts","parkname":"Wolf Trap NP for the Performing Arts","state":"VA","region":"NC","type":"Other Designations"},{"id":"135","code":"WHHO","name":"White House","parkname":"President's Park (White House)","state":"DC","region":"NC","type":"Other Designations"},{"id":"136","code":"ALPO","name":"Allegheny Portage Railroad National Historic Site","parkname":"Allegheny Portage Railroad","state":"PA","region":"NE","type":"National Historic Sites"},{"id":"137","code":"FONE","name":"Fort Necessity National Battlefield","parkname":"Fort Necessity","state":"PA","region":"NE","type":"National Battlefields"},{"id":"138","code":"JOFL","name":"Johnstown Flood National Memorial","parkname":"Johnstown Flood","state":"PA","region":"NE","type":"National Memorials"},{"id":"139","code":"APCO","name":"Appomattox Court House National Historical Park","parkname":"Appomattox Court House","state":"VA","region":"NE","type":"National Historical Parks"},{"id":"140","code":"ASIS","name":"Assateague Island National Seashore","parkname":"Assateague Island","state":"MD","region":"NE","type":"National Seashores"},{"id":"141","code":"BLUE","name":"Bluestone National Scenic River","parkname":"Bluestone","state":"WV","region":"NE","type":"National Wild & Scenic Rivers"},{"id":"142","code":"BOWA","name":"Booker T. Washington National Monument","parkname":"Booker T Washington","state":"VA","region":"NE","type":"National Monuments"},{"id":"143","code":"COLO","name":"Colonial National Historical Park","parkname":"Colonial","state":"VA","region":"NE","type":"National Historical Parks"},{"id":"144","code":"DEWA","name":"Delaware Water Gap National Recreation Area","parkname":"Delaware Water Gap","state":"NJ","region":"NE","type":"National Recreation Areas"},{"id":"145","code":"EDAL","name":"Edgar Allan Poe National Historic Site","parkname":"Edgar Allan Poe","state":"PA","region":"NE","type":"National Historic Sites"},{"id":"146","code":"DELA","name":"Middle Delaware National Scenic River","parkname":"Delaware","state":"NJ","region":"NE","type":"National Wild & Scenic Rivers"},{"id":"147","code":"FOMC","name":"Fort McHenry National Monument and Historic Shrine","parkname":"Fort McHenry","state":"MD","region":"NE","type":"National Monuments"},{"id":"148","code":"GARI","name":"Gauley River National Recreation Area","parkname":"Gauley River","state":"WV","region":"NE","type":"National Recreation Areas"},{"id":"149","code":"HAMP","name":"Hampton National Historic Site","parkname":"Hampton","state":"MD","region":"NE","type":"National Historic Sites"},{"id":"150","code":"FRHI","name":"Friendship Hill National Historic Site","parkname":"Friendship Hill","state":"PA","region":"NE","type":"National Historic Sites"},{"id":"151","code":"FRSP","name":"Fredericksburg and Spotsylvania County Battlefields Memorial National Military Park","parkname":"Fredericksburg & Spotsylvania","state":"VA","region":"NE","type":"National Military Parks"},{"id":"152","code":"GETT","name":"Gettysburg National Military Park","parkname":"Gettysburg","state":"PA","region":"NE","type":"National Military Parks"},{"id":"153","code":"EISE","name":"Eisenhower National Historic Site","parkname":"Eisenhower","state":"PA","region":"NE","type":"National Historic Sites"},{"id":"154","code":"HOFU","name":"Hopewell Furnace National Historic Site","parkname":"Hopewell Furnace","state":"PA","region":"NE","type":"National Historic Sites"},{"id":"155","code":"INDE","name":"Independence National Historical Park","parkname":"Independence","state":"PA","region":"NE","type":"National Historical Parks"},{"id":"156","code":"THKO","name":"Thaddeus Kosciuszko National Memorial","parkname":"Thaddeus Kosciuszko","state":"PA","region":"NE","type":"National Memorials"},{"id":"157","code":"PETE","name":"Petersburg National Battlefield","parkname":"Petersburg","state":"VA","region":"NE","type":"National Battlefields"},{"id":"158","code":"NERI","name":"New River Gorge National Park and Preserve","parkname":"New River Gorge","state":"WV","region":"NE","type":"National Preserves"},{"id":"159","code":"MAWA","name":"Maggie L. Walker National Historic Site","parkname":"Maggie L. Walker","state":"VA","region":"NE","type":"National Historic Sites"},{"id":"160","code":"RICH","name":"Richmond National Battlefield Park","parkname":"Richmond","state":"VA","region":"NE","type":"National Battlefield Parks"},{"id":"161","code":"SHEN","name":"Shenandoah National Park","parkname":"Shenandoah","state":"VA","region":"NE","type":"National Parks"},{"id":"162","code":"THST","name":"Thomas Stone National Historic Site","parkname":"Thomas Stone","state":"MD","region":"NE","type":"National Historic Sites"},{"id":"163","code":"UPDE","name":"Upper Delaware Scenic and Recreational River","parkname":"Upper Delaware","state":"NY","region":"NE","type":"National Wild & Scenic Rivers"},{"id":"164","code":"BICY","name":"Big Cypress National Preserve","parkname":"Big Cypress","state":"FL","region":"SE","type":"National Preserves"},{"id":"165","code":"TUIN","name":"Tuskegee Institute National Historic Site","parkname":"Tuskegee Institute","state":"AL","region":"SE","type":"National Historic Sites"},{"id":"166","code":"CANA","name":"Canaveral National Seashore","parkname":"Canaveral","state":"FL","region":"SE","type":"National Seashores"},{"id":"167","code":"CHAT","name":"Chattahoochee River National Recreation Area","parkname":"Chattahoochee River","state":"GA","region":"SE","type":"National Recreation Areas"},{"id":"168","code":"ANDE","name":"Andersonville National Historic Site","parkname":"Andersonville","state":"GA","region":"SE","type":"National Historic Sites"},{"id":"169","code":"BISO","name":"Big South Fork National River and Recreation Area","parkname":"Big South Fork","state":"KY","region":"SE","type":"National Rivers"},{"id":"170","code":"BLRI","name":"Blue Ridge Parkway","parkname":"Blue Ridge Parkway","state":"NC","region":"SE","type":"Parkways"},{"id":"171","code":"CARL","name":"Carl Sandburg Home National Historic Site","parkname":"Carl Sandburg Home","state":"NC","region":"SE","type":"National Historic Sites"},{"id":"172","code":"GUCO","name":"Guilford Courthouse National Military Park","parkname":"Guilford Courthouse","state":"NC","region":"SE","type":"National Military Parks"},{"id":"173","code":"FORA","name":"Fort Raleigh National Historic Site","parkname":"Fort Raleigh","state":"NC","region":"SE","type":"National Historic Sites"},{"id":"174","code":"WRBR","name":"Wright Brothers National Memorial","parkname":"Wright Brothers","state":"NC","region":"SE","type":"National Memorials"},{"id":"175","code":"CAHA","name":"Cape Hatteras National Seashore","parkname":"Cape Hatteras","state":"NC","region":"SE","type":"National Seashores"},{"id":"176","code":"CALO","name":"Cape Lookout National Seashore","parkname":"Cape Lookout","state":"NC","region":"SE","type":"National Seashores"},{"id":"177","code":"CUGA","name":"Cumberland Gap National Historical Park","parkname":"Cumberland Gap","state":"KY","region":"SE","type":"National Historical Parks"},{"id":"178","code":"CONG","name":"Congaree National Park","parkname":"Congaree","state":"SC","region":"SE","type":"National Parks"},{"id":"179","code":"BISC","name":"Biscayne National Park","parkname":"Biscayne","state":"FL","region":"SE","type":"National Parks"},{"id":"180","code":"CASA","name":"Castillo de San Marcos National Monument","parkname":"Castillo de San Marcos","state":"FL","region":"SE","type":"National Monuments"},{"id":"181","code":"FOMA","name":"Fort Matanzas National Monument","parkname":"Fort Matanzas","state":"FL","region":"SE","type":"National Monuments"},{"id":"182","code":"EVER","name":"Everglades National Park","parkname":"Everglades","state":"FL","region":"SE","type":"National Parks"},{"id":"183","code":"DRTO","name":"Dry Tortugas National Park","parkname":"Dry Tortugas","state":"FL","region":"SE","type":"National Parks"},{"id":"184","code":"DESO","name":"De Soto National Memorial","parkname":"De Soto","state":"FL","region":"SE","type":"National Memorials"},{"id":"185","code":"FOCA","name":"Fort Caroline National Memorial","parkname":"Fort Caroline","state":"FL","region":"SE","type":"National Memorials"},{"id":"186","code":"SAJU","name":"San Juan National Historic Site","parkname":"San Juan","state":"PR","region":"SE","type":"National Historic Sites"},{"id":"187","code":"TIMU","name":"Timucuan Ecological and Historic Preserve","parkname":"Timucuan","state":"FL","region":"SE","type":"National Preserves"},{"id":"188","code":"VIIS","name":"Virgin Islands National Park","parkname":"Virgin Islands","state":"VI","region":"SE","type":"National Parks"},{"id":"189","code":"VICR","name":"Virgin Islands Coral Reef National Monument","parkname":"Virgin Islands Coral Reef","state":"VI","region":"SE","type":"National Monuments"},{"id":"190","code":"BUIS","name":"Buck Island Reef National Monument","parkname":"Buck Island Reef","state":"VI","region":"SE","type":"National Monuments"},{"id":"191","code":"CHRI","name":"Christiansted National Historic Site","parkname":"Christiansted","state":"VI","region":"SE","type":"National Historic Sites"},{"id":"192","code":"SARI","name":"Salt River Bay National Historical Park and Ecological Preserve","parkname":"Salt River Bay","state":"VI","region":"SE","type":"National Historical Parks"},{"id":"193","code":"FODO","name":"Fort Donelson National Battlefield","parkname":"Fort Donelson","state":"TN","region":"SE","type":"National Battlefields"},{"id":"194","code":"FOFR","name":"Fort Frederica National Monument","parkname":"Fort Frederica","state":"GA","region":"SE","type":"National Monuments"},{"id":"195","code":"FOSU","name":"Fort Sumter and Fort Moultrie National Historical Park","parkname":"Fort Sumter and Fort Moultrie","state":"SC","region":"SE","type":"National Historical Parks"},{"id":"196","code":"ANJO","name":"Andrew Johnson National Historic Site","parkname":"Andrew Johnson","state":"TN","region":"SE","type":"National Historic Sites"},{"id":"197","code":"GRSM","name":"Great Smoky Mountains National Park","parkname":"Great Smoky Mountains","state":"TN","region":"SE","type":"National Parks"},{"id":"198","code":"HOBE","name":"Horseshoe Bend National Military Park","parkname":"Horseshoe Bend","state":"AL","region":"SE","type":"National Military Parks"},{"id":"199","code":"KIMO","name":"Kings Mountain National Military Park","parkname":"Kings Mountain","state":"SC","region":"SE","type":"National Military Parks"},{"id":"200","code":"COWP","name":"Cowpens National Battlefield","parkname":"Cowpens","state":"SC","region":"SE","type":"National Battlefields"},{"id":"201","code":"MACA","name":"Mammoth Cave National Park","parkname":"Mammoth Cave","state":"KY","region":"SE","type":"National Parks"},{"id":"202","code":"ABLI","name":"Abraham Lincoln Birthplace National Historical Park","parkname":"Abraham Lincoln Birthplace","state":"KY","region":"SE","type":"National Historical Parks"},{"id":"203","code":"MOCR","name":"Moores Creek National Battlefield","parkname":"Moores Creek","state":"NC","region":"SE","type":"National Battlefields"},{"id":"204","code":"NATR","name":"Natchez Trace Parkway","parkname":"Natchez Trace","state":"MS","region":"SE","type":"Parkways"},{"id":"205","code":"BRCR","name":"Brices Cross Roads National Battlefield Site","parkname":"Brices Cross Roads","state":"MS","region":"SE","type":"National Battlefield Sites"},{"id":"206","code":"TUPE","name":"Tupelo National Battlefield","parkname":"Tupelo","state":"MS","region":"SE","type":"National Battlefields"},{"id":"207","code":"SHIL","name":"Shiloh National Military Park","parkname":"Shiloh","state":"TN","region":"SE","type":"National Military Parks"},{"id":"208","code":"STRI","name":"Stones River National Battlefield","parkname":"Stones River","state":"TN","region":"SE","type":"National Battlefields"},{"id":"209","code":"OCMU","name":"Ocmulgee Mounds National Historical Park","parkname":"Ocmulgee","state":"GA","region":"SE","type":"National Historical Parks"},{"id":"210","code":"CUIS","name":"Cumberland Island National Seashore","parkname":"Cumberland Island","state":"GA","region":"SE","type":"National Seashores"},{"id":"211","code":"OBRI","name":"Obed Wild and Scenic River","parkname":"Obed","state":"TN","region":"SE","type":"National Wild & Scenic Rivers"},{"id":"212","code":"LIRI","name":"Little River Canyon National Preserve","parkname":"Little River Canyon","state":"AL","region":"SE","type":"National Preserves"},{"id":"213","code":"RUCA","name":"Russell Cave National Monument","parkname":"Russell Cave","state":"AL","region":"SE","type":"National Monuments"},{"id":"214","code":"NISI","name":"Ninety Six National Historic Site","parkname":"Ninety Six","state":"SC","region":"SE","type":"National Historic Sites"},{"id":"215","code":"TUAI","name":"Tuskegee Airmen National Historic Site","parkname":"Tuskegee Airmen","state":"AL","region":"SE","type":"National Historic Sites"},{"id":"216","code":"SEMO","name":"Selma to Montgomery National Historic Trail","parkname":"Selma to Montgomery","state":"AL","region":"SE","type":"National Trails System"},{"id":"217","code":"NATC","name":"Natchez National Historical Park","parkname":"Natchez","state":"MS","region":"SE","type":"National Historical Parks"},{"id":"218","code":"CHPI","name":"Charles Pinckney National Historic Site","parkname":"Charles Pinckney","state":"SC","region":"SE","type":"National Historic Sites"},{"id":"219","code":"JICA","name":"Jimmy Carter National Historical Park","parkname":"Jimmy Carter","state":"GA","region":"SE","type":"National Historical Parks"},{"id":"220","code":"MALU","name":"Martin Luther King, Jr., National Historical Park","parkname":"Martin Luther King Jr.","state":"GA","region":"SE","type":"National Historical Parks"},{"id":"221","code":"CUVA","name":"Cuyahoga Valley National Park","parkname":"Cuyahoga Valley","state":"OH","region":"MW","type":"National Parks"},{"id":"222","code":"BRVB","name":"Brown v. Board of Education National Historical Park","parkname":"Brown V Board Of Education","state":"KS","region":"MW","type":"National Historical Parks"},{"id":"223","code":"FILA","name":"First Ladies National Historic Site","parkname":"First Ladies","state":"OH","region":"MW","type":"National Historic Sites"},{"id":"224","code":"NIOB","name":"Niobrara National Scenic River","parkname":"Niobrara","state":"NE","region":"MW","type":"National Wild & Scenic Rivers"},{"id":"225","code":"IATR","name":"Ice Age National Scenic Trail","parkname":"Ice Age","state":"WI","region":"MW","type":"National Scenic Trails"},{"id":"226","code":"DAAV","name":"Dayton Aviation Heritage National Historical Park","parkname":"Dayton Aviation Heritage","state":"OH","region":"MW","type":"National Historical Parks"},{"id":"227","code":"FOLS","name":"Fort Larned National Historic Site","parkname":"Fort Larned","state":"KS","region":"MW","type":"National Historic Sites"},{"id":"228","code":"NICO","name":"Nicodemus National Historic Site","parkname":"Nicodemus","state":"KS","region":"MW","type":"National Historic Sites"},{"id":"229","code":"FOSC","name":"Fort Scott National Historic Site","parkname":"Fort Scott","state":"KS","region":"MW","type":"National Historic Sites"},{"id":"230","code":"TAPR","name":"Tallgrass Prairie National Preserve","parkname":"Tallgrass Prairie","state":"KS","region":"MW","type":"National Preserves"},{"id":"231","code":"GWCA","name":"George Washington Carver National Monument","parkname":"George Washington Carver","state":"MO","region":"MW","type":"National Monuments"},{"id":"232","code":"WICL","name":"President William Jefferson Clinton Birthplace Home National Historic Site","parkname":"President William Jefferson Clinton Birthplace Home","state":"AR","region":"MW","type":"National Historic Sites"},{"id":"233","code":"WICR","name":"Wilson's Creek National Battlefield","parkname":"Wilson's Creek","state":"MO","region":"MW","type":"National Battlefields"},{"id":"234","code":"JAGA","name":"James A. Garfield National Historic Site","parkname":"James A Garfield","state":"OH","region":"MW","type":"National Historic Sites"},{"id":"235","code":"KEWE","name":"Keweenaw National Historical Park","parkname":"Keweenaw","state":"MI","region":"MW","type":"National Historical Parks"},{"id":"236","code":"GRPO","name":"Grand Portage National Monument","parkname":"Grand Portage","state":"MN","region":"MW","type":"National Monuments"},{"id":"237","code":"HSTR","name":"Harry S Truman National Historic Site","parkname":"Harry S Truman","state":"MO","region":"MW","type":"National Historic Sites"},{"id":"238","code":"HOME","name":"Homestead National Historical Park","parkname":"Homestead","state":"NE","region":"MW","type":"National Historical Parks"},{"id":"239","code":"ISRO","name":"Isle Royale National Park","parkname":"Isle Royale","state":"MI","region":"MW","type":"National Parks"},{"id":"240","code":"RIRA","name":"River Raisin National Battlefield Park","parkname":"River Raisin","state":"MI","region":"MW","type":"National Battlefield Parks"},{"id":"241","code":"LECL","name":"Lewis and Clark National Historic Trail","parkname":"Lewis and Clark","state":"IL","region":"MW","type":"National Trails System"},{"id":"242","code":"RRBH","name":"Ronald Reagan Boyhood Home National Historic Site","parkname":"Ronald Reagan Boyhood Home","state":"IL","region":"MW","type":"National Historic Sites"},{"id":"243","code":"LIBO","name":"Lincoln Boyhood National Memorial","parkname":"Lincoln Boyhood","state":"IN","region":"MW","type":"National Memorials"},{"id":"244","code":"JEFF","name":"Gateway Arch National Park","parkname":"Gateway Arch","state":"MO","region":"MW","type":"National Parks"},{"id":"245","code":"GERO","name":"George Rogers Clark National Historical Park","parkname":"George Rogers Clark","state":"IN","region":"MW","type":"National Historical Parks"},{"id":"246","code":"LIHO","name":"Lincoln Home National Historic Site","parkname":"Lincoln Home","state":"IL","region":"MW","type":"National Historic Sites"},{"id":"247","code":"OZAR","name":"Ozark National Scenic Riverways","parkname":"Ozark","state":"MO","region":"MW","type":"National Rivers"},{"id":"248","code":"SCBL","name":"Scotts Bluff National Monument","parkname":"Scotts Bluff","state":"NE","region":"MW","type":"National Monuments"},{"id":"249","code":"AGFO","name":"Agate Fossil Beds National Monument","parkname":"Agate Fossil Beds","state":"NE","region":"MW","type":"National Monuments"},{"id":"250","code":"HOCU","name":"Hopewell Culture National Historical Park","parkname":"Hopewell Culture","state":"OH","region":"MW","type":"National Historical Parks"},{"id":"251","code":"PEVI","name":"Perry's Victory and International Peace Memorial","parkname":"Perry's Victory & International Peace","state":"OH","region":"MW","type":"National Memorials"},{"id":"252","code":"WIHO","name":"William Howard Taft National Historic Site","parkname":"William Howard Taft","state":"OH","region":"MW","type":"National Historic Sites"},{"id":"253","code":"SACN","name":"Saint Croix National Scenic Riverway","parkname":"Saint Croix","state":"MN","region":"MW","type":"National Wild & Scenic Rivers"},{"id":"254","code":"LOSA","name":"Lower Saint Croix National Scenic Riverway","parkname":"Lower Saint Croix","state":"MN","region":"MW","type":"National Wild & Scenic Rivers"},{"id":"255","code":"SLBE","name":"Sleeping Bear Dunes National Lakeshore","parkname":"Sleeping Bear Dunes","state":"MI","region":"MW","type":"National Lakeshores"},{"id":"256","code":"ULSG","name":"Ulysses S. Grant National Historic Site","parkname":"Ulysses S Grant","state":"MO","region":"MW","type":"National Historic Sites"},{"id":"257","code":"MIMI","name":"Minuteman Missile National Historic Site","parkname":"Minuteman Missile","state":"SD","region":"MW","type":"National Historic Sites"},{"id":"258","code":"BITH","name":"Big Thicket National Preserve","parkname":"Big Thicket","state":"TX","region":"IM","type":"National Preserves"},{"id":"259","code":"CARI","name":"Cane River Creole National Historical Park","parkname":"Cane River Creole","state":"LA","region":"SE","type":"National Historical Parks"},{"id":"260","code":"JAZZ","name":"New Orleans Jazz National Historical Park","parkname":"New Orleans Jazz","state":"LA","region":"SE","type":"National Historical Parks"},{"id":"261","code":"AMIS","name":"Amistad National Recreation Area","parkname":"Amistad","state":"TX","region":"IM","type":"National Recreation Areas"},{"id":"262","code":"ARPO","name":"Arkansas Post National Memorial","parkname":"Arkansas Post","state":"AR","region":"MW","type":"National Memorials"},{"id":"263","code":"BAND","name":"Bandelier National Monument","parkname":"Bandelier","state":"NM","region":"IM","type":"National Monuments"},{"id":"264","code":"BIBE","name":"Big Bend National Park","parkname":"Big Bend","state":"TX","region":"IM","type":"National Parks"},{"id":"265","code":"CAVO","name":"Capulin Volcano National Monument","parkname":"Capulin Volcano","state":"NM","region":"IM","type":"National Monuments"},{"id":"266","code":"CAVE","name":"Carlsbad Caverns National Park","parkname":"Carlsbad Caverns","state":"NM","region":"IM","type":"National Parks"},{"id":"267","code":"GUMO","name":"Guadalupe Mountains National Park","parkname":"Guadalupe Mountains","state":"TX","region":"IM","type":"National Parks"},{"id":"268","code":"CHAM","name":"Chamizal National Memorial","parkname":"Chamizal","state":"TX","region":"IM","type":"National Memorials"},{"id":"269","code":"FODA","name":"Fort Davis National Historic Site","parkname":"Fort Davis","state":"TX","region":"IM","type":"National Historic Sites"},{"id":"270","code":"FOUN","name":"Fort Union National Monument","parkname":"Fort Union","state":"NM","region":"IM","type":"National Monuments"},{"id":"271","code":"GICL","name":"Gila Cliff Dwellings National Monument","parkname":"Gila Cliff Dwellings","state":"NM","region":"IM","type":"National Monuments"},{"id":"272","code":"HOSP","name":"Hot Springs National Park","parkname":"Hot Springs","state":"AR","region":"MW","type":"National Parks"},{"id":"273","code":"CHSC","name":"Little Rock Central High School National Historic Site","parkname":"Little Rock Central High School","state":"AR","region":"MW","type":"National Historic Sites"},{"id":"274","code":"FOSM","name":"Fort Smith National Historic Site","parkname":"Fort Smith","state":"AR","region":"MW","type":"National Historic Sites"},{"id":"275","code":"PERI","name":"Pea Ridge National Military Park","parkname":"Pea Ridge","state":"AR","region":"MW","type":"National Military Parks"},{"id":"276","code":"BUFF","name":"Buffalo National River","parkname":"Buffalo","state":"AR","region":"MW","type":"National Rivers"},{"id":"277","code":"LYJO","name":"Lyndon B. Johnson National Historical Park","parkname":"Lyndon B Johnson","state":"TX","region":"IM","type":"National Historical Parks"},{"id":"278","code":"AZRU","name":"Aztec Ruins National Monument","parkname":"Aztec Ruins","state":"NM","region":"IM","type":"National Monuments"},{"id":"279","code":"CACH","name":"Canyon de Chelly National Monument","parkname":"Canyon de Chelly","state":"AZ","region":"IM","type":"National Monuments"},{"id":"280","code":"CHCU","name":"Chaco Culture National Historical Park","parkname":"Chaco Culture","state":"NM","region":"IM","type":"National Historical Parks"},{"id":"281","code":"ELMO","name":"El Morro National Monument","parkname":"El Morro","state":"NM","region":"IM","type":"National Monuments"},{"id":"282","code":"HUTR","name":"Hubbell Trading Post National Historic Site","parkname":"Hubbell Trading Post","state":"AZ","region":"IM","type":"National Historic Sites"},{"id":"283","code":"NAVA","name":"Navajo National Monument","parkname":"Navajo","state":"AZ","region":"IM","type":"National Monuments"},{"id":"284","code":"WACA","name":"Walnut Canyon National Monument","parkname":"Walnut Canyon","state":"AZ","region":"IM","type":"National Monuments"},{"id":"285","code":"SUCR","name":"Sunset Crater Volcano National Monument","parkname":"Sunset Crater Volcano","state":"AZ","region":"IM","type":"National Monuments"},{"id":"286","code":"WUPA","name":"Wupatki National Monument","parkname":"Wupatki","state":"AZ","region":"IM","type":"National Monuments"},{"id":"287","code":"PAIS","name":"Padre Island National Seashore","parkname":"Padre Island","state":"TX","region":"IM","type":"National Seashores"},{"id":"288","code":"PECO","name":"Pecos National Historical Park","parkname":"Pecos","state":"NM","region":"IM","type":"National Historical Parks"},{"id":"289","code":"CHIC","name":"Chickasaw National Recreation Area","parkname":"Chickasaw","state":"OK","region":"IM","type":"National Recreation Areas"},{"id":"290","code":"JELA","name":"Jean Lafitte National Historical Park and Preserve","parkname":"Jean Lafitte","state":"LA","region":"SE","type":"National Historical Parks"},{"id":"291","code":"LAMR","name":"Lake Meredith National Recreation Area","parkname":"Lake Meredith","state":"TX","region":"IM","type":"National Recreation Areas"},{"id":"292","code":"ALFL","name":"Alibates Flint Quarries National Monument","parkname":"Alibates Flint Quarries","state":"TX","region":"IM","type":"National Monuments"},{"id":"293","code":"RIGR","name":"Rio Grande Wild and Scenic River","parkname":"Rio Grande","state":"TX","region":"IM","type":"National Wild & Scenic Rivers"},{"id":"294","code":"PETR","name":"Petroglyph National Monument","parkname":"Petroglyph","state":"NM","region":"IM","type":"National Monuments"},{"id":"295","code":"SAAN","name":"San Antonio Missions National Historical Park","parkname":"San Antonio Missions","state":"TX","region":"IM","type":"National Historical Parks"},{"id":"296","code":"WABA","name":"Washita Battlefield National Historic Site","parkname":"Washita Battlefield","state":"OK","region":"IM","type":"National Historic Sites"},{"id":"297","code":"WHSA","name":"White Sands National Park","parkname":"White Sands","state":"NM","region":"IM","type":"National Parks"},{"id":"298","code":"ELMA","name":"El Malpais National Monument","parkname":"El Malpais","state":"NM","region":"IM","type":"National Monuments"},{"id":"299","code":"POPO","name":"Poverty Point National Monument","parkname":"Poverty Point","state":"LA","region":"SE","type":"National Monuments"},{"id":"300","code":"PAAL","name":"Palo Alto Battlefield National Historical Park","parkname":"Palo Alto Battlefield","state":"TX","region":"IM","type":"National Historical Parks"},{"id":"301","code":"CABR","name":"Cabrillo National Monument","parkname":"Cabrillo","state":"CA","region":"PW","type":"National Monuments"},{"id":"302","code":"CHIS","name":"Channel Islands National Park","parkname":"Channel Islands","state":"CA","region":"PW","type":"National Parks"},{"id":"303","code":"GOGA","name":"Golden Gate National Recreation Area","parkname":"Golden Gate","state":"CA","region":"PW","type":"National Recreation Areas"},{"id":"304","code":"KALA","name":"Kalaupapa National Historical Park","parkname":"Kalaupapa","state":"HI","region":"PW","type":"National Historical Parks"},{"id":"305","code":"FOPO","name":"Fort Point National Historic Site","parkname":"Fort Point","state":"CA","region":"PW","type":"National Historic Sites"},{"id":"306","code":"EUON","name":"Eugene O'Neill National Historic Site","parkname":"Eugene O'Neill","state":"CA","region":"PW","type":"National Historic Sites"},{"id":"307","code":"GRCA","name":"Grand Canyon National Park","parkname":"Grand Canyon","state":"AZ","region":"IM","type":"National Parks"},{"id":"308","code":"PUHE","name":"Pu'ukohola Heiau National Historic Site","parkname":"Puukohola Heiau","state":"HI","region":"PW","type":"National Historic Sites"},{"id":"309","code":"KAHO","name":"Kaloko-Honokohau National Historical Park","parkname":"Kaloko-Honokohau","state":"HI","region":"PW","type":"National Historical Parks"},{"id":"310","code":"LAKE","name":"Lake Mead National Recreation Area","parkname":"Lake Mead","state":"NV","region":"PW","type":"National Recreation Areas"},{"id":"311","code":"MOJA","name":"Mojave National Preserve","parkname":"Mojave","state":"CA","region":"PW","type":"National Preserves"},{"id":"312","code":"LAVO","name":"Lassen Volcanic National Park","parkname":"Lassen Volcanic","state":"CA","region":"PW","type":"National Parks"},{"id":"313","code":"LABE","name":"Lava Beds National Monument","parkname":"Lava Beds","state":"CA","region":"PW","type":"National Monuments"},{"id":"314","code":"GRBA","name":"Great Basin National Park","parkname":"Great Basin","state":"NV","region":"PW","type":"National Parks"},{"id":"315","code":"PEFO","name":"Petrified Forest National Park","parkname":"Petrified Forest","state":"AZ","region":"IM","type":"National Parks"},{"id":"316","code":"REDW","name":"Redwood National Park","parkname":"Redwood","state":"CA","region":"PW","type":"National Parks"},{"id":"317","code":"RORI","name":"Rosie the Riveter/World War II Home Front National Historical Park","parkname":"Rosie the Riveter WWII Home Front","state":"CA","region":"PW","type":"National Historical Parks"},{"id":"318","code":"JOMU","name":"John Muir National Historic Site","parkname":"John Muir","state":"CA","region":"PW","type":"National Historic Sites"},{"id":"319","code":"MUWO","name":"Muir Woods National Monument","parkname":"Muir Woods","state":"CA","region":"PW","type":"National Monuments"},{"id":"320","code":"SAMO","name":"Santa Monica Mountains National Recreation Area","parkname":"Santa Monica Mountains","state":"CA","region":"PW","type":"National Recreation Areas"},{"id":"321","code":"SEQU","name":"Sequoia National Park","parkname":"Sequoia","state":"CA","region":"PW","type":"National Parks"},{"id":"322","code":"KICA","name":"Kings Canyon National Park","parkname":"Kings Canyon","state":"CA","region":"PW","type":"National Parks"},{"id":"323","code":"DEPO","name":"Devils Postpile National Monument","parkname":"Devils Postpile","state":"CA","region":"PW","type":"National Monuments"},{"id":"324","code":"POCH","name":"Port Chicago Naval Magazine National Memorial","parkname":"Port Chicago Naval Magazine","state":"CA","region":"PW","type":"National Memorials"},{"id":"325","code":"CAGR","name":"Casa Grande Ruins National Monument","parkname":"Casa Grande Ruins","state":"AZ","region":"IM","type":"National Monuments"},{"id":"326","code":"CHIR","name":"Chiricahua National Monument","parkname":"Chiricahua","state":"AZ","region":"IM","type":"National Monuments"},{"id":"327","code":"CORO","name":"Coronado National Memorial","parkname":"Coronado","state":"AZ","region":"IM","type":"National Memorials"},{"id":"328","code":"MOCA","name":"Montezuma Castle National Monument","parkname":"Montezuma Castle","state":"AZ","region":"IM","type":"National Monuments"},{"id":"329","code":"ORPI","name":"Organ Pipe Cactus National Monument","parkname":"Organ Pipe Cactus","state":"AZ","region":"IM","type":"National Monuments"},{"id":"330","code":"TONT","name":"Tonto National Monument","parkname":"Tonto","state":"AZ","region":"IM","type":"National Monuments"},{"id":"331","code":"TUMA","name":"Tumacacori National Historical Park","parkname":"Tumacácori","state":"AZ","region":"IM","type":"National Historical Parks"},{"id":"332","code":"TUZI","name":"Tuzigoot National Monument","parkname":"Tuzigoot","state":"AZ","region":"IM","type":"National Monuments"},{"id":"333","code":"PIMA","name":"Hohokam Pima National Monument","parkname":"Hohokam Pima","state":"AZ","region":"IM","type":"National Monuments"},{"id":"334","code":"WHIS","name":"Whiskeytown-Shasta-Trinity National Recreation Area","parkname":"Whiskeytown","state":"CA","region":"PW","type":"National Recreation Areas"},{"id":"335","code":"MANZ","name":"Manzanar National Historic Site","parkname":"Manzanar","state":"CA","region":"PW","type":"National Historic Sites"},{"id":"336","code":"PERL","name":"Pearl Harbor National Memorial","parkname":"Pearl Harbor","state":"HI","region":"PW","type":"National Memorials"},{"id":"337","code":"NPSA","name":"National Park of American Samoa","parkname":"National Park of American Samoa","state":"SA","region":"PW","type":"National Parks"},{"id":"338","code":"SAFR","name":"San Francisco Maritime National Historical Park","parkname":"San Francisco Maritime","state":"CA","region":"PW","type":"National Historical Parks"},{"id":"339","code":"JODA","name":"John Day Fossil Beds National Monument","parkname":"John Day Fossil Beds","state":"OR","region":"PW","type":"National Monuments"},{"id":"340","code":"LARO","name":"Lake Roosevelt National Recreation Area","parkname":"Lake Roosevelt","state":"WA","region":"PW","type":"National Recreation Areas"},{"id":"341","code":"CRMO","name":"Craters of the Moon National Monument","parkname":"Craters of the Moon","state":"ID","region":"PW","type":"National Monuments"},{"id":"342","code":"CRMP","name":"Craters of the Moon National Preserve","parkname":"Craters of the Moon","state":"ID","region":"PW","type":"National Preserves"},{"id":"343","code":"EBLA","name":"Ebey's Landing National Historical Reserve","parkname":"Ebey's Landing","state":"WA","region":"PW","type":"National Reserves"},{"id":"344","code":"CRLA","name":"Crater Lake National Park","parkname":"Crater Lake","state":"OR","region":"PW","type":"National Parks"},{"id":"345","code":"ORCA","name":"Oregon Caves National Monument and Preserve","parkname":"Oregon Caves","state":"OR","region":"PW","type":"National Monuments"},{"id":"346","code":"MIIN","name":"Minidoka National Historic Site","parkname":"Minidoka","state":"ID","region":"PW","type":"National Historic Sites"},{"id":"347","code":"NEPE","name":"Nez Perce National Historical Park","parkname":"Nez Perce","state":"ID","region":"PW","type":"National Historical Parks"},{"id":"348","code":"LEWI","name":"Lewis and Clark National Historical Park","parkname":"Lewis and Clark","state":"OR","region":"PW","type":"National Historical Parks"},{"id":"349","code":"FOVA","name":"Fort Vancouver National Historic Site","parkname":"Fort Vancouver","state":"WA","region":"PW","type":"National Historic Sites"},{"id":"350","code":"MORA","name":"Mount Rainier National Park","parkname":"Mount Rainier","state":"WA","region":"PW","type":"National Parks"},{"id":"351","code":"LACH","name":"Lake Chelan National Recreation Area","parkname":"Lake Chelan","state":"WA","region":"PW","type":"National Recreation Areas"},{"id":"352","code":"ROLA","name":"Ross Lake National Recreation Area","parkname":"Ross Lake","state":"WA","region":"PW","type":"National Recreation Areas"},{"id":"353","code":"SAJH","name":"San Juan Island National Historical Park","parkname":"San Juan Island","state":"WA","region":"PW","type":"National Historical Parks"},{"id":"354","code":"WHMI","name":"Whitman Mission National Historic Site","parkname":"Whitman Mission","state":"WA","region":"PW","type":"National Historic Sites"},{"id":"355","code":"HAFO","name":"Hagerman Fossil Beds National Monument","parkname":"Hagerman Fossil Beds","state":"ID","region":"PW","type":"National Monuments"},{"id":"356","code":"ALAG","name":"Alagnak Wild River","parkname":"Alagnak","state":"AK","region":"AK","type":"National Wild & Scenic Rivers"},{"id":"357","code":"ANIA","name":"Aniakchak National Preserve","parkname":"Aniakchak","state":"AK","region":"AK","type":"National Preserves"},{"id":"358","code":"ANIA","name":"Aniakchak National Monument","parkname":"Aniakchak","state":"AK","region":"AK","type":"National Monuments"},{"id":"359","code":"BELA","name":"Bering Land Bridge National Preserve","parkname":"Bering Land Bridge","state":"AK","region":"AK","type":"National Preserves"},{"id":"360","code":"CAKR","name":"Cape Krusenstern National Monument","parkname":"Cape Krusenstern","state":"AK","region":"AK","type":"National Monuments"},{"id":"361","code":"DENA","name":"Denali National Preserve","parkname":"Denali","state":"AK","region":"AK","type":"National Preserves"},{"id":"362","code":"DENA","name":"Denali National Park","parkname":"Denali","state":"AK","region":"AK","type":"National Parks"},{"id":"363","code":"GAAR","name":"Gates of the Arctic National Preserve","parkname":"Gates of the Arctic","state":"AK","region":"AK","type":"National Preserves"},{"id":"364","code":"GAAR","name":"Gates of the Arctic National Park","parkname":"Gates of the Arctic","state":"AK","region":"AK","type":"National Parks"},{"id":"365","code":"GLBA","name":"Glacier Bay National Preserve","parkname":"Glacier Bay","state":"AK","region":"AK","type":"National Preserves"},{"id":"366","code":"GLBA","name":"Glacier Bay National Park","parkname":"Glacier Bay","state":"AK","region":"AK","type":"National Parks"},{"id":"367","code":"KATM","name":"Katmai National Preserve","parkname":"Katmai","state":"AK","region":"AK","type":"National Preserves"},{"id":"368","code":"KATM","name":"Katmai National Park","parkname":"Katmai","state":"AK","region":"AK","type":"National Parks"},{"id":"369","code":"KEFJ","name":"Kenai Fjords National Park","parkname":"Kenai Fjords","state":"AK","region":"AK","type":"National Parks"},{"id":"370","code":"KLGO","name":"Klondike Gold Rush National Historical Park","parkname":"Klondike Gold Rush","state":"AK","region":"AK","type":"National Historical Parks"},{"id":"371","code":"KOVA","name":"Kobuk Valley National Park","parkname":"Kobuk Valley","state":"AK","region":"AK","type":"National Parks"},{"id":"372","code":"LACL","name":"Lake Clark National Preserve","parkname":"Lake Clark","state":"AK","region":"AK","type":"National Preserves"},{"id":"373","code":"LACL","name":"Lake Clark National Park","parkname":"Lake Clark","state":"AK","region":"AK","type":"National Parks"},{"id":"374","code":"NOAT","name":"Noatak National Preserve","parkname":"Noatak","state":"AK","region":"AK","type":"National Preserves"},{"id":"375","code":"SITK","name":"Sitka National Historical Park","parkname":"Sitka","state":"AK","region":"AK","type":"National Historical Parks"},{"id":"376","code":"WRST","name":"Wrangell-St. Elias National Preserve","parkname":"Wrangell - St Elias","state":"AK","region":"AK","type":"National Preserves"},{"id":"377","code":"WRST","name":"Wrangell-St. Elias National Park","parkname":"Wrangell - St Elias","state":"AK","region":"AK","type":"National Parks"},{"id":"378","code":"YUCH","name":"Yukon-Charley Rivers National Preserve","parkname":"Yukon - Charley Rivers","state":"AK","region":"AK","type":"National Preserves"},{"id":"379","code":"MLKM","name":"Martin Luther King, Jr., Memorial","parkname":"Martin Luther King Jr","state":"DC","region":"NC","type":"National Memorials"},{"id":"380","code":"FOMR","name":"Fort Monroe National Monument","parkname":"Fort Monroe","state":"VA","region":"NE","type":"National Monuments"},{"id":"381","code":"PAGR","name":"Paterson Great Falls National Historical Park","parkname":"Paterson Great Falls","state":"NJ","region":"NE","type":"National Historical Parks"},{"id":"382","code":"CECH","name":"César E. Chávez National Monument","parkname":"César E. Chávez","state":"CA","region":"PW","type":"National Monuments"},{"id":"383","code":"HATU","name":"Harriet Tubman Underground Railroad National Historical Park","parkname":"Harriet Tubman Underground Railroad","state":"MD","region":"NE","type":"National Historical Parks"},{"id":"384","code":"FRST","name":"First State National Historical Park","parkname":"First State","state":"DE","region":"NE","type":"National Historical Parks"},{"id":"385","code":"CHYO","name":"Charles Young Buffalo Soldiers National Monument","parkname":"Charles Young Buffalo Soldiers","state":"OH","region":"MW","type":"National Monuments"},{"id":"386","code":"CAJO","name":"Captain John Smith Chesapeake National Historic Trail","parkname":"Captain John Smith Chesapeake National Historic Trail","state":"VA","region":"NE","type":"National Trails System"},{"id":"387","code":"NEEN","name":"New England National Scenic Trail","parkname":"New England National Scenic Trail","state":"CT","region":"NE","type":"National Scenic Trails"},{"id":"388","code":"NOCO","name":"North Country National Scenic Trail","parkname":"North Country","state":"NY","region":"MW","type":"National Scenic Trails"},{"id":"389","code":"HART","name":"Harriet Tubman National Historical Park","parkname":"Harriet Tubman","state":"NY","region":"NE","type":"National Historical Parks"},{"id":"390","code":"BLRV","name":"Blackstone River Valley National Historical Park","parkname":"Blackstone River Valley","state":"RI","region":"NE","type":"National Historical Parks"},{"id":"391","code":"HONO","name":"Honouliuli National Historic Site","parkname":"Honouliuli","state":"HI","region":"PW","type":"National Historic Sites"},{"id":"392","code":"PULL","name":"Pullman National Historical Park","parkname":"Pullman","state":"IL","region":"MW","type":"National Historical Parks"},{"id":"393","code":"WWIM","name":"World War I Memorial","parkname":"World War I","state":"DC","region":"NC","type":"National Memorials"},{"id":"394","code":"TUSK","name":"Tule Springs Fossil Beds National Monument","parkname":"Tule Springs Fossil Beds","state":"NV","region":"PW","type":"National Monuments"},{"id":"395","code":"MAPR","name":"Manhattan Project National Historical Park","parkname":"Manhattan Project","state":"NM","region":"IM","type":"National Historical Parks"},{"id":"396","code":"WACO","name":"Waco Mammoth National Monument","parkname":"Waco Mammoth","state":"TX","region":"IM","type":"National Monuments"},{"id":"397","code":"CAMO","name":"Castle Mountains National Monument","parkname":"Castle Mountain","state":"CA","region":"PW","type":"National Monuments"},{"id":"398","code":"ALKA","name":"Ala Kahakai National Historic Trail","parkname":"Ala Kahakai National Historic Trail","state":"HI","region":"PW","type":"National Trails System"},{"id":"399","code":"STON","name":"Stonewall National Monument","parkname":"Stonewall","state":"NY","region":"NE","type":"National Monuments"},{"id":"400","code":"KAWW","name":"Katahdin Woods and Waters National Monument","parkname":"Katahdin Woods And Waters","state":"ME","region":"NE","type":"National Monuments"},{"id":"401","code":"BICR","name":"Birmingham Civil Rights National Monument","parkname":"Birmingham Civil Rights","state":"AL","region":"SE","type":"National Monuments"},{"id":"402","code":"FRRI","name":"Freedom Riders National Monument","parkname":"Freedom Riders","state":"AL","region":"SE","type":"National Monuments"},{"id":"403","code":"STGE","name":"Ste. Genevieve National Historical Park","parkname":"Ste. Geneviève","state":"MO","region":"MW","type":"National Historical Parks"},{"id":"404","code":"CANE","name":"Camp Nelson National Monument","parkname":"Camp Nelson","state":"KY","region":"SE","type":"National Monuments"},{"id":"405","code":"TULE","name":"Tule Lake National Monument","parkname":"Tule Lake","state":"CA","region":"PW","type":"National Monuments"},{"id":"406","code":"MEMY","name":"Medgar and Myrlie Evers Home National Monument","parkname":"Medgar and Myrlie Evers Home","state":"MS","region":"SE","type":"National Monuments"},{"id":"407","code":"MISP","name":"Mill Springs Battlefield National Monument","parkname":"Mill Springs Battlefield","state":"KY","region":"SE","type":"National Monuments"},{"id":"408","code":"DDEM","name":"Dwight D. Eisenhower Memorial","parkname":"Dwight D. Eisenhower","state":"DC","region":"NC","type":"National Memorials"},{"id":"409","code":"AMCH","name":"Amache National Historic Site","parkname":" Amache","state":"CO","region":"IM","type":"National Historic Sites"},{"id":"410","code":"BLSC","name":"Blackwell School National Historic Site","parkname":"Blackwell School","state":"TX","region":"IM","type":"National Historic Sites"},{"id":"411","code":"NEPH","name":"New Philadelphia National Historic Site","parkname":"New Philadelphia National Historic Site","state":"IL","region":"MW","type":"National Historic Sites"},{"id":"412","code":"AMME","name":"American Memorial Park","parkname":"American Memorial Park","state":"NM","region":"PW","type":"Affiliated Areas"},{"id":"413","code":"SPRA","name":"Springfield 1908 Race Riot National Monument","parkname":"Springfield 1908 Race Riot","state":"IL","region":"MW","type":"National Monuments"},{"id":"414","code":"HALE","name":"Haleakala National Park","parkname":"Haleakala","state":"HI","region":"PW","type":"National Parks"},{"id":"415","code":"PIRO","name":"Pictured Rocks National Lakeshore","parkname":"Pictured Rocks","state":"MI","region":"MW","type":"National Lakeshores"},{"id":"416","code":"SAPU","name":"Salinas Pueblo Missions National Monument","parkname":"Salinas Pueblo Missions","state":"NM","region":"IM","type":"National Monuments"},{"id":"417","code":"VALL","name":"Valles Caldera National Preserve","parkname":"Valles Caldera","state":"NM","region":"IM","type":"National Preserves"},{"id":"418","code":"WAPA","name":"War in the Pacific National Historical Park","parkname":"War in the Pacific","state":"GU","region":"PW","type":"National Historical Parks"},{"id":"419","code":"SAGU","name":"Saguaro National Park","parkname":"Saguaro","state":"AZ","region":"IM","type":"National Parks"},{"id":"420","code":"MANA","name":"Manassas National Battlefield Park","parkname":"Manassas","state":"VA","region":"NC","type":"National Battlefield Parks"},{"id":"421","code":"CIRO","name":"City of Rocks National Reserve","parkname":"City of Rocks","state":"ID","region":"PW","type":"National Reserves"},{"id":"422","code":"FLNI","name":"Flight 93 National Memorial","parkname":"Flight 93","state":"PA","region":"NE","type":"National Memorials"},{"id":"423","code":"VAFO","name":"Valley Forge National Historical Park","parkname":"Valley Forge","state":"PA","region":"NE","type":"National Historical Parks"},{"id":"424","code":"FLFO","name":"Florissant Fossil Beds National Monument","parkname":"Florissant Fossil Beds","state":"CO","region":"IM","type":"National Monuments"},{"id":"425","code":"FOBO","name":"Fort Bowie National Historic Site","parkname":"Fort Bowie","state":"AZ","region":"IM","type":"National Historic Sites"},{"id":"426","code":"YELL","name":"Yellowstone National Park","parkname":"Yellowstone","state":"WY","region":"IM","type":"National Parks"},{"id":"427","code":"YOSE","name":"Yosemite National Park","parkname":"Yosemite","state":"CA","region":"PW","type":"National Parks"},{"id":"428","code":"APPA","name":"Appalachian National Scenic Trail","parkname":"Appalachian","state":"ME","region":"NE","type":"National Scenic Trails"},{"id":"429","code":"CHCH","name":"Chickamauga and Chattanooga National Military Park","parkname":"Chickamauga and Chattanooga","state":"GA","region":"SE","type":"National Military Parks"},{"id":"430","code":"JOTR","name":"Joshua Tree National Park","parkname":"Joshua Tree","state":"CA","region":"PW","type":"National Parks"},{"id":"431","code":"DEVA","name":"Death Valley National Park","parkname":"Death Valley","state":"CA","region":"PW","type":"National Parks"},{"id":"432","code":"HAVO","name":"Hawai'i Volcanoes National Park","parkname":"Hawaii Volcanoes","state":"HI","region":"PW","type":"National Parks"},{"id":"433","code":"PIPE","name":"Pipestone National Monument","parkname":"Pipestone","state":"MN","region":"MW","type":"National Monuments"},{"id":"434","code":"FOPU","name":"Fort Pulaski National Monument","parkname":"Fort Pulaski","state":"GA","region":"SE","type":"National Monuments"},{"id":"435","code":"STEA","name":"Steamtown National Historic Site","parkname":"Steamtown","state":"PA","region":"NE","type":"National Historic Sites"},{"id":"436","code":"KEMO","name":"Kennesaw Mountain National Battlefield Park","parkname":"Kennesaw Mountain","state":"GA","region":"SE","type":"National Battlefield Parks"},{"id":"437","code":"CEBE","name":"Cedar Creek and Belle Grove National Historical Park","parkname":"Cedar Creek & Belle Grove","state":"VA","region":"NE","type":"National Historical Parks"}];
+
+// Known coordinates for NPS parks (by UNIT_CODE)
+const PARK_COORDS = {
+  ACAD:[44.35,-68.21],ARCH:[38.68,-109.57],BADL:[43.75,-102.5],BIBE:[29.25,-103.25],BISC:[25.48,-80.44],BLCA:[38.57,-107.72],BRCA:[37.57,-112.17],CANY:[38.2,-109.93],CARE:[38.2,-111.17],CAVE:[32.17,-104.44],CHIS:[34.01,-119.42],CONG:[33.78,-80.78],CRLA:[42.94,-122.1],CUVA:[41.24,-81.55],DEVA:[36.5,-117.07],DENA:[63.33,-150.5],DRTO:[24.63,-82.87],EVER:[25.68,-80.88],GLAC:[48.7,-113.8],GLBA:[58.5,-137.0],GRBA:[39.0,-114.3],GRCA:[36.06,-112.14],GRSM:[35.68,-83.53],GRSA:[37.73,-105.51],GRTE:[43.73,-110.8],GUMO:[31.92,-104.87],HALE:[20.72,-156.17],HAVO:[19.4,-155.2],INDU:[41.65,-87.05],ISRO:[48.1,-88.55],JOTR:[33.87,-115.9],KATM:[58.5,-155.0],KEFJ:[59.92,-149.65],KICA:[36.8,-118.55],KOVA:[66.9,-159.0],LACL:[60.97,-153.42],LAVO:[40.49,-121.51],MACA:[37.18,-86.1],MEVE:[37.18,-108.49],MORA:[46.85,-121.75],NOCA:[48.7,-121.2],NERI:[38.07,-81.08],OLYM:[47.97,-123.5],PEFO:[35.07,-109.78],PINN:[36.49,-121.16],REDW:[41.3,-124.0],ROMO:[40.4,-105.58],SAGU:[32.25,-110.5],SHEN:[38.53,-78.35],SEQU:[36.43,-118.68],THRO:[46.97,-103.45],VIIS:[18.35,-64.73],VOYA:[48.5,-92.84],WICA:[43.55,-103.48],YELL:[44.6,-110.5],YOSE:[37.83,-119.5],ZION:[37.3,-113.05],
+  APIS:[46.95,-90.66],EFMO:[43.08,-91.18],HEHO:[41.67,-91.35],MNRR:[42.74,-97.42],
+  GUIS:[30.37,-87.14],HAFE:[39.32,-77.74],PRWI:[38.57,-77.38],PUHO:[19.42,-155.9],REER:[32.52,-80.68],SAIR:[42.47,-71.0],SARA:[43.0,-73.64],TILL:[33.5,-88.83],VICK:[32.33,-90.85],GEWA:[38.19,-76.92],MISS:[44.98,-93.18],BOST:[42.36,-71.06],MAVA:[42.36,-73.68],SPAR:[42.1,-72.59],SACR:[45.13,-67.13],ADAM:[42.26,-71.0],JOFI:[42.35,-71.12],MIMA:[42.44,-71.37],SAMA:[42.52,-70.9],CACO:[41.9,-70.1],ELRO:[41.77,-73.9],LONG:[42.38,-71.12],GATE:[40.56,-74.05],SAPA:[40.93,-73.86],THRI:[42.88,-78.87],FOST:[43.21,-75.46],FIIS:[40.73,-73.13],HOFR:[41.77,-73.93],VAMA:[41.79,-73.94],SAGA:[43.47,-72.39],STLI:[40.69,-74.04],EDIS:[40.79,-74.24],MORR:[40.8,-74.47],THRB:[40.74,-73.99],CACL:[40.7,-74.01],FEHA:[40.7,-74.01],GEGR:[40.81,-73.96],HAGR:[40.82,-73.95],SAHI:[40.89,-73.5],BOAF:[42.36,-71.06],BOHA:[42.35,-70.9],AFBG:[40.71,-74.0],GOIS:[40.69,-74.02],LOWE:[42.65,-71.31],ROWI:[41.83,-71.41],NEBE:[41.64,-70.92],WEFA:[41.26,-73.44],MABI:[43.63,-72.52],WORI:[42.9,-76.81],FRLA:[42.32,-71.14],
+  KNRI:[47.34,-101.38],FOUS:[48.0,-103.95],
+  BICA:[45.13,-107.97],LIBI:[45.56,-107.43],DETO:[44.59,-104.72],DINO:[40.54,-108.98],FOLA:[42.21,-104.53],GLCA:[36.94,-111.49],RABR:[37.07,-110.96],GOSP:[41.62,-112.54],SAND:[38.28,-102.54],GRSA:[37.73,-105.51],JODR:[44.16,-110.75],FOBU:[41.85,-110.17],MEVE:[37.18,-108.49],HOVE:[37.39,-108.99],YUHO:[37.25,-108.65],MORU:[43.88,-103.46],BEOL:[38.04,-103.43],BRCA:[37.57,-112.17],CEBR:[37.62,-112.84],PISP:[36.86,-112.74],TICA:[40.44,-111.71],ROMO:[40.4,-105.58],BLCA:[38.57,-107.72],COLM:[39.06,-108.7],CURE:[38.43,-107.37],FLFO:[38.91,-105.28],GRSA:[37.73,-105.51],GRKO:[46.6,-112.73],SAND:[38.28,-102.54],YUHO:[37.25,-108.65],AMCH:[38.0,-102.35],
+  NACA:[38.9,-77.03],CLBA:[38.98,-77.08],BEPA:[38.89,-77.0],FOWA:[38.71,-77.03],LYBA:[38.88,-77.04],MALL:[38.89,-77.02],GREE:[38.99,-76.89],ROCR:[38.95,-77.05],PAAV:[38.89,-77.02],ANTI:[39.47,-77.74],CHOH:[38.89,-77.16],MABE:[38.91,-77.03],CATO:[39.63,-77.47],GWMP:[38.97,-77.15],ARHO:[38.88,-77.07],THIS:[38.9,-77.06],WWII:[38.89,-77.04],FRDE:[38.88,-77.04],FOTH:[38.9,-77.03],JEFM:[38.88,-77.04],LINC:[38.89,-77.05],WAMO:[38.89,-77.04],KOWA:[38.89,-77.05],PISC:[38.68,-77.07],FRDO:[38.86,-76.98],CAWO:[38.91,-77.03],MONO:[39.38,-77.36],VIVE:[38.89,-77.05],COGA:[38.89,-77.04],WOTR:[38.94,-77.27],WHHO:[38.9,-77.04],MLKM:[38.89,-77.04],WWIM:[38.89,-77.03],DDEM:[38.89,-77.04],
+  ALPO:[40.46,-78.57],FONE:[39.81,-79.58],JOFL:[40.33,-78.92],APCO:[37.37,-78.8],ASIS:[38.05,-75.25],BLUE:[37.62,-81.01],BOWA:[37.12,-79.84],COLO:[37.24,-76.59],DEWA:[41.13,-74.97],EDAL:[39.95,-75.15],DELA:[40.94,-75.12],FOMC:[39.26,-76.58],GARI:[38.17,-80.88],HAMP:[39.4,-76.65],FRHI:[39.77,-79.97],FRSP:[38.3,-77.47],GETT:[39.81,-77.23],EISE:[39.81,-77.26],HOFU:[40.2,-75.77],INDE:[39.95,-75.15],THKO:[39.95,-75.15],PETE:[37.21,-77.39],NERI:[38.07,-81.08],MAWA:[37.54,-77.44],RICH:[37.43,-77.45],SHEN:[38.53,-78.35],THST:[38.53,-77.04],UPDE:[41.63,-75.08],VAFO:[40.1,-75.44],FLNI:[40.06,-78.9],FOMR:[37.02,-76.31],HATU:[38.69,-76.26],FRST:[39.55,-75.67],CAJO:[37.24,-76.59],ASIS:[38.05,-75.25],PAAV:[38.89,-77.02],STEA:[41.41,-75.66],
+  BICY:[25.93,-81.0],TUIN:[32.43,-85.7],CANA:[28.98,-80.8],CHAT:[34.07,-84.37],ANDE:[32.2,-84.13],BISO:[36.48,-84.7],BLRI:[36.0,-81.0],CARL:[35.27,-82.44],GUCO:[36.08,-79.78],FORA:[35.9,-75.71],WRBR:[35.9,-75.66],CAHA:[35.25,-75.54],CALO:[34.58,-76.54],CUGA:[36.6,-83.66],CONG:[33.78,-80.78],BISC:[25.48,-80.44],CASA:[29.9,-81.31],FOMA:[29.72,-81.24],EVER:[25.68,-80.88],DRTO:[24.63,-82.87],DESO:[27.53,-82.58],FOCA:[30.38,-81.51],SAJU:[18.47,-66.12],TIMU:[30.42,-81.52],VIIS:[18.35,-64.73],VICR:[18.32,-64.73],BUIS:[17.78,-64.62],CHRI:[17.74,-64.7],SARI:[17.77,-64.75],FODO:[36.5,-87.86],FOFR:[31.22,-81.4],FOSU:[32.75,-79.87],ANJO:[36.15,-82.83],GRSM:[35.68,-83.53],HOBE:[32.97,-85.73],KIMO:[35.15,-81.38],COWP:[35.13,-81.79],MACA:[37.18,-86.1],ABLI:[37.53,-85.73],MOCR:[34.47,-78.1],NATR:[35.0,-89.5],BRCR:[34.9,-88.75],TUPE:[34.26,-88.75],SHIL:[35.14,-88.36],STRI:[35.88,-86.43],OCMU:[32.84,-83.62],CUIS:[30.87,-81.45],OBRI:[36.06,-84.69],LIRI:[34.42,-85.62],RUCA:[34.97,-85.8],NISI:[34.15,-82.01],TUAI:[32.48,-85.72],SEMO:[32.4,-87.0],NATC:[31.55,-91.38],CHPI:[32.83,-79.82],JICA:[32.02,-84.38],MALU:[33.75,-84.37],CARI:[31.64,-93.0],JAZZ:[29.96,-90.06],JELA:[29.87,-90.12],POPO:[32.63,-91.4],BICR:[33.51,-86.82],FRRI:[33.59,-86.52],CANE:[37.87,-84.65],MISP:[37.08,-84.73],CHCH:[34.92,-85.28],KEMO:[34.0,-84.58],FOPU:[32.03,-80.89],
+  CUVA:[41.24,-81.55],BRVB:[39.05,-95.68],FILA:[40.8,-81.38],NIOB:[42.76,-100.08],IATR:[43.0,-89.0],DAAV:[39.79,-84.04],FOLS:[38.19,-99.3],NICO:[39.39,-99.72],FOSC:[37.84,-94.71],TAPR:[38.44,-96.56],GWCA:[36.93,-94.35],WICL:[33.67,-93.6],WICR:[37.11,-93.43],JAGA:[41.65,-81.35],KEWE:[47.17,-88.52],GRPO:[47.97,-89.68],HSTR:[39.09,-94.58],HOME:[40.28,-96.36],ISRO:[48.1,-88.55],RIRA:[41.91,-83.38],LECL:[38.57,-90.2],RRBH:[40.46,-89.64],LIBO:[38.12,-87.36],JEFF:[38.62,-90.18],GERO:[38.68,-87.53],LIHO:[39.8,-89.65],OZAR:[37.17,-91.35],SCBL:[41.83,-103.7],AGFO:[42.43,-103.75],HOCU:[39.37,-83.0],PEVI:[41.65,-82.82],WIHO:[39.11,-84.51],SACN:[45.41,-92.67],LOSA:[44.88,-92.83],SLBE:[44.87,-86.05],ULSG:[38.53,-90.35],MIMI:[43.9,-101.95],CUVA:[41.24,-81.55],CHYO:[39.77,-83.96],NOCO:[44.5,-74.0],PULL:[41.69,-87.61],HOSP:[34.52,-93.05],CHSC:[34.74,-92.33],FOSM:[35.39,-94.43],PERI:[36.45,-94.03],BUFF:[36.03,-92.97],ARPO:[34.03,-91.37],WICL:[33.67,-93.6],NEPH:[39.54,-90.68],SPRA:[39.8,-89.65],STGE:[37.98,-90.04],
+  BITH:[30.38,-94.42],AMIS:[29.43,-100.95],BAND:[35.78,-106.27],BIBE:[29.25,-103.25],CAVO:[36.78,-104.51],CAVE:[32.17,-104.44],GUMO:[31.92,-104.87],CHAM:[31.78,-106.45],FODA:[30.6,-103.9],FOUN:[35.9,-104.47],GICL:[33.22,-108.27],LYJO:[30.27,-98.62],AZRU:[36.83,-107.99],CACH:[36.15,-109.47],CHCU:[36.06,-107.98],ELMO:[35.04,-108.35],HUTR:[35.7,-109.95],NAVA:[36.68,-110.53],WACA:[35.17,-111.85],SUCR:[35.37,-111.5],WUPA:[35.52,-111.56],PAIS:[27.0,-97.37],PECO:[35.57,-105.7],CHIC:[34.49,-97.0],LAMR:[35.65,-101.85],ALFL:[35.58,-101.67],RIGR:[29.52,-103.14],PETR:[35.12,-106.73],SAAN:[29.36,-98.44],WABA:[35.63,-99.7],WHSA:[32.78,-106.17],ELMA:[34.98,-107.98],PAAL:[26.02,-97.47],BLSC:[32.45,-104.37],MAPR:[35.52,-106.28],WACO:[31.56,-97.11],SAPU:[34.27,-106.09],VALL:[35.87,-106.53],
+  CABR:[32.67,-117.24],CHIS:[34.01,-119.42],GOGA:[37.83,-122.47],FOPO:[37.81,-122.48],EUON:[37.82,-122.02],LAKE:[36.02,-114.74],MOJA:[34.97,-115.61],LAVO:[40.49,-121.51],LABE:[41.73,-121.5],GRBA:[39.0,-114.3],PEFO:[35.07,-109.78],REDW:[41.3,-124.0],RORI:[37.93,-122.37],JOMU:[37.98,-122.12],MUWO:[37.9,-122.57],SAMO:[34.1,-118.82],SEQU:[36.43,-118.68],KICA:[36.8,-118.55],DEPO:[37.62,-119.09],POCH:[38.05,-122.03],WHIS:[40.6,-122.64],MANZ:[36.73,-118.15],SAFR:[37.81,-122.42],JOTR:[33.87,-115.9],DEVA:[36.5,-117.07],GRCA:[36.06,-112.14],PISP:[36.49,-121.16],PORE:[38.05,-122.88],PINN:[36.49,-121.16],CECH:[35.12,-118.48],TULE:[41.88,-121.51],CAMO:[34.83,-115.65],YOSE:[37.83,-119.5],
+  KALA:[21.18,-156.97],PUHO:[20.03,-155.82],KAHO:[19.65,-156.0],PERL:[21.37,-157.95],HONO:[21.37,-158.01],HALE:[20.72,-156.17],HAVO:[19.4,-155.2],PUHO:[20.03,-155.82],ALKA:[20.05,-155.82],
+  JODA:[44.66,-119.65],LARO:[48.32,-118.15],CRMO:[43.42,-113.52],CRMP:[43.42,-113.52],EBLA:[48.22,-122.7],CRLA:[42.94,-122.1],ORCA:[42.1,-123.41],MIIN:[42.67,-114.24],NEPE:[46.42,-116.84],LEWI:[46.24,-124.05],FOVA:[45.62,-122.66],MORA:[46.85,-121.75],LACH:[48.11,-120.43],ROLA:[48.73,-121.07],SAJH:[48.53,-123.08],WHMI:[46.05,-118.46],HAFO:[42.78,-114.91],NOCA:[48.7,-121.2],OLYM:[47.97,-123.5],CIRO:[42.08,-113.68],
+  ALAG:[59.5,-156.5],ANIA:[56.9,-158.19],BELA:[65.5,-164.0],CAKR:[67.05,-163.65],DENA:[63.33,-150.5],GAAR:[67.78,-153.3],GLBA:[58.5,-137.0],KATM:[58.5,-155.0],KEFJ:[59.92,-149.65],KLGO:[59.46,-135.33],KOVA:[66.9,-159.0],LACL:[60.97,-153.42],NOAT:[68.0,-161.0],SITK:[57.05,-135.33],WRST:[61.5,-143.0],YUCH:[64.5,-143.0],
+  PISP:[46.87,-96.35],MISS:[44.98,-93.18],SACN:[45.41,-92.67],LOSA:[44.88,-92.83],GRPO:[47.97,-89.68],VOYA:[48.5,-92.84],ISRO:[48.1,-88.55],SLBE:[44.87,-86.05],PIRO:[46.56,-86.36],APIS:[46.95,-90.66],
+  NPSA:[-14.27,-170.69],WAPA:[13.44,144.7],
+  CAGR:[32.99,-111.53],CHIR:[32.0,-109.35],CORO:[31.35,-110.25],MOCA:[34.61,-111.83],ORPI:[32.0,-112.8],TONT:[33.65,-111.1],TUMA:[31.57,-111.05],TUZI:[34.77,-112.02],PIMA:[33.03,-111.87],FOBO:[31.95,-109.45],SAGU:[32.25,-110.5],HUTR:[35.7,-109.95],PISP:[36.49,-121.16],PIPE:[44.0,-96.32],
+};
+
+const REGION_NAMES = {AK:'Alaska',IM:'Intermountain',MW:'Midwest',NC:'National Capital',NE:'Northeast',PW:'Pacific West',SE:'Southeast'};
+const STATE_NAMES = {AK:'Alaska',AL:'Alabama',AR:'Arkansas',AZ:'Arizona',CA:'California',CO:'Colorado',CT:'Connecticut',DC:'DC',DE:'Delaware',FL:'Florida',GA:'Georgia',GU:'Guam',HI:'Hawaii',IA:'Iowa',ID:'Idaho',IL:'Illinois',IN:'Indiana',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',MA:'Massachusetts',MD:'Maryland',ME:'Maine',MI:'Michigan',MN:'Minnesota',MO:'Missouri',MS:'Mississippi',MT:'Montana',NC:'North Carolina',ND:'North Dakota',NE:'Nebraska',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NV:'Nevada',NY:'New York',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',PR:'Puerto Rico',RI:'Rhode Island',SA:'Am. Samoa',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VA:'Virginia',VI:'Virgin Islands',VT:'Vermont',WA:'Washington',WI:'Wisconsin',WV:'West Virginia',WY:'Wyoming'};
+
+// Enrich parks with coords
+PARKS_DATA.forEach(p => {
+  const c = PARK_COORDS[p.code];
+  if(c) { p.lat = c[0]; p.lng = c[1]; }
+});
+
+// ============================================================
+// MAP INIT
+// ============================================================
+const map = L.map('map', {zoomControl: true}).setView([38.5, -96], 4);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+// Custom marker icon
+function makeIcon(color='#3d6b4f') {
+  return L.divIcon({
+    className:'',
+    html:`<svg width="22" height="28" viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg"><path d="M11 0C5 0 0 5 0 11c0 8.5 11 17 11 17s11-8.5 11-17C22 5 17 0 11 0z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="11" cy="11" r="4" fill="white"/></svg>`,
+    iconSize:[22,28], iconAnchor:[11,28], popupAnchor:[0,-28]
+  });
+}
+
+const defaultIcon = makeIcon('#3d6b4f');
+const activeIcon = makeIcon('#c9960c');
+
+let markers = {};
+let activeMarker = null;
+let activeItem = null;
+
+// ============================================================
+// POPULATE FILTERS
+// ============================================================
+const states = [...new Set(PARKS_DATA.map(p=>p.state))].sort();
+const regions = [...new Set(PARKS_DATA.map(p=>p.region))].sort();
+const types = [...new Set(PARKS_DATA.map(p=>p.type))].sort();
+
+const stateEl = document.getElementById('state-filter');
+states.forEach(s => { const o = document.createElement('option'); o.value=s; o.textContent=`${s} — ${STATE_NAMES[s]||s}`; stateEl.appendChild(o); });
+
+const regionEl = document.getElementById('region-filter');
+regions.forEach(r => { const o = document.createElement('option'); o.value=r; o.textContent=`${REGION_NAMES[r]||r}`; regionEl.appendChild(o); });
+
+const typeEl = document.getElementById('type-filter');
+types.forEach(t => { const o = document.createElement('option'); o.value=t; o.textContent=t; typeEl.appendChild(o); });
+
+// ============================================================
+// FILTER + RENDER
+// ============================================================
+let filteredParks = [...PARKS_DATA];
+
+function getFilters() {
+  return {
+    search: document.getElementById('search-input').value.toLowerCase().trim(),
+    state: document.getElementById('state-filter').value,
+    region: document.getElementById('region-filter').value,
+    type: document.getElementById('type-filter').value,
+  };
+}
+
+function applyFilters() {
+  const f = getFilters();
+  filteredParks = PARKS_DATA.filter(p => {
+    if(f.search && !p.name.toLowerCase().includes(f.search) && !p.parkname.toLowerCase().includes(f.search) && !p.code.toLowerCase().includes(f.search)) return false;
+    if(f.state && p.state !== f.state) return false;
+    if(f.region && p.region !== f.region) return false;
+    if(f.type && p.type !== f.type) return false;
+    return true;
+  });
+  renderList();
+  renderMarkers();
+}
+
+function renderList() {
+  const list = document.getElementById('parks-list');
+  const count = document.getElementById('result-count');
+  count.textContent = `${filteredParks.length} result${filteredParks.length!==1?'s':''}`;
+
+  if(filteredParks.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">🌲</div>No parks match your filters.<br>Try broadening your search.</div>`;
+    return;
+  }
+
+  list.innerHTML = filteredParks.map(p => {
+    const hasCoords = p.lat !== undefined;
+    return `<div class="park-item${hasCoords?'':' no-coords'}" data-id="${p.id}" onclick="selectPark('${p.id}')">
+      <div class="park-name">${p.name}</div>
+      <div class="park-meta">
+        <span class="tag tag-state">${p.state}</span>
+        <span class="tag tag-region">${REGION_NAMES[p.region]||p.region}</span>
+        <span class="tag tag-type" title="${p.type}">${p.type}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMarkers() {
+  // Remove old markers
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+
+  const withCoords = filteredParks.filter(p => p.lat);
+  withCoords.forEach(p => {
+    const m = L.marker([p.lat, p.lng], {icon: defaultIcon}).addTo(map);
+    m.bindPopup(`
+      <div class="popup-title">${p.name}</div>
+      <div class="popup-detail">
+        <strong>Code:</strong> ${p.code}<br>
+        <strong>State:</strong> ${STATE_NAMES[p.state]||p.state}<br>
+        <strong>Region:</strong> ${REGION_NAMES[p.region]||p.region}<br>
+        <strong>Type:</strong> ${p.type}
+      </div>
+      <a class="popup-link" href="https://www.nps.gov/${p.code.toLowerCase()}/" target="_blank">Visit NPS Page ↗</a>
+    `);
+    m.on('click', () => selectPark(p.id, false));
+    markers[p.id] = m;
+  });
+
+  // If only a few results, fit to them
+  if(withCoords.length > 0 && withCoords.length < 50) {
+    const group = L.featureGroup(withCoords.map(p => L.marker([p.lat, p.lng])));
+    map.fitBounds(group.getBounds().pad(0.2), {maxZoom: 10});
+  }
+}
+
+function selectPark(id, scrollIntoView=true) {
+  const park = PARKS_DATA.find(p => p.id === id);
+  if(!park) return;
+
+  // Highlight list item
+  if(activeItem) activeItem.classList.remove('active');
+  const item = document.querySelector(`[data-id="${id}"]`);
+  if(item) {
+    item.classList.add('active');
+    activeItem = item;
+    if(scrollIntoView) item.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  // Highlight marker
+  if(activeMarker) activeMarker.setIcon(defaultIcon);
+  if(markers[id]) {
+    markers[id].setIcon(activeIcon);
+    markers[id].openPopup();
+    activeMarker = markers[id];
+    if(park.lat) map.setView([park.lat, park.lng], Math.max(map.getZoom(), 9), {animate:true});
+  }
+}
+
+function clearFilters() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('state-filter').value = '';
+  document.getElementById('region-filter').value = '';
+  document.getElementById('type-filter').value = '';
+  applyFilters();
+}
+
+// Event listeners
+['state-filter','region-filter','type-filter'].forEach(id => document.getElementById(id).addEventListener('change', applyFilters));
+document.getElementById('search-input').addEventListener('input', applyFilters);
+
+// Initial render
+applyFilters();
+document.getElementById('total-badge').textContent = `${PARKS_DATA.length} parks`;
+</script>
+</body>
+</html>
