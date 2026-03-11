@@ -454,6 +454,12 @@ function getFilters() {
 
 function applyFilters() {
   const f = getFilters();
+  if (!f.search && !f.state && !f.region && !f.type) {
+    filteredParks = [];
+    renderList(true);
+    renderMarkers();
+    return;
+  }
   filteredParks = PARKS_DATA.filter(p => {
     if(f.search && !p.name.toLowerCase().includes(f.search) && !p.parkname.toLowerCase().includes(f.search) && !p.code.toLowerCase().includes(f.search)) return false;
     if(f.state && p.state !== f.state) return false;
@@ -461,13 +467,20 @@ function applyFilters() {
     if(f.type && p.type !== f.type) return false;
     return true;
   });
-  renderList();
+  renderList(false);
   renderMarkers();
 }
 
-function renderList() {
+function renderList(noSearch = false) {
   const list = document.getElementById('parks-list');
   const count = document.getElementById('result-count');
+
+  if (noSearch) {
+    count.textContent = 'Use filters to find parks';
+    list.innerHTML = `<div class="empty-state"><div class="icon">🗺️</div>Search by name, state, region,<br>or type to explore parks.</div>`;
+    return;
+  }
+
   count.textContent = `${filteredParks.length} result${filteredParks.length!==1?'s':''}`;
 
   if(filteredParks.length === 0) {
@@ -552,8 +565,9 @@ function clearFilters() {
 ['state-filter','region-filter','type-filter'].forEach(id => document.getElementById(id).addEventListener('change', applyFilters));
 document.getElementById('search-input').addEventListener('input', applyFilters);
 
-// Initial render
-applyFilters();
+// Initial render - show empty state until user searches
+filteredParks = [];
+renderList(true);
 document.getElementById('total-badge').textContent = `${PARKS_DATA.length} parks`;
 </script>
 </body>
